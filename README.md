@@ -21,10 +21,12 @@ Black-and-white interface. All code and icons are original.
 ## Install
 
 1. Download `PBJStudio-Setup-1.0.0.exe` from the **Releases** page of this repository.
-2. Double-click it. If Windows says "Windows protected your PC", click **More info**, then
-   **Run anyway**. (Normal for new free software without a paid code-signing certificate.)
-3. Accept the licence and click **Install**. No administrator rights are needed.
-4. Tick **Launch PB&J Studio** at the end, or start it from the Start menu.
+2. Your browser may warn that the file "isn't commonly downloaded". This is normal for new free software
+   without a paid code-signing certificate. In **Edge**: open Downloads (Ctrl+J), click the **...** next to the
+   file, choose **Keep**, then **Show more** > **Keep anyway**. In **Chrome**: click the warning, then **Keep**.
+3. Double-click the file. If Windows says "Windows protected your PC", click **More info**, then **Run anyway**.
+4. Accept the licence and click **Install**. No administrator rights are needed.
+5. Tick **Launch PB&J Studio** at the end, or start it from the Start menu.
 
 To remove it, use **Settings > Apps > Installed apps > PB&J Studio > Uninstall**.
 
