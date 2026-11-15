@@ -1,0 +1,13 @@
+  <!-- App: WPF loads windows, controls and bindings by name from compiled XAML, so type, property
+       and event names stay. Strings are hidden and the assembly is marked against decompilers;
+       the signing engine in KcsPdfSigner.Core carries the real renaming. -->
+  <Var name="KeepPublicApi" value="true" />
+  <Var name="HidePrivateApi" value="false" />
+  <Var name="RenameProperties" value="false" />
+  <Var name="RenameEvents" value="false" />
+  <Var name="RenameFields" value="false" />
+  <Var name="HideStrings" value="true" />
+  <Var name="UseUnicodeNames" value="true" />
+  <Var name="OptimizeMethods" value="true" />
+  <Var name="SuppressIldasm" value="true" />
+  <Module file="$(InPath)$(Asm).dll" />

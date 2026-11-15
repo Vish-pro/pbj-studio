@@ -1,0 +1,27 @@
+PB&J Studio - Paper, Binder and Jurat - Freeware Licence
+Copyright (c) 2026 truevith.space and vistaar.space. All rights reserved.
+
+1. Free use
+   You may download, install and use PB&J Studio free of charge, for personal or business
+   purposes, on any number of computers you own or manage.
+
+2. Distribution
+   You may share the original, unmodified installer free of charge.
+   You may not sell, rent or charge for the installer, or bundle it with paid products.
+
+3. Source code
+   The source code in the public repository is covered by the licence file in that repository.
+   This installer licence covers the compiled program you install.
+
+4. No warranty
+   The software is provided "AS IS", without warranty of any kind, express or implied, including
+   but not limited to warranties of merchantability, fitness for a particular purpose and
+   non-infringement. Check every signed or edited PDF before you rely on it.
+
+5. Limitation of liability
+   In no event shall the author, truevith.space or vistaar.space be liable for any claim, damages,
+   data loss or other liability arising from the use of, or inability to use, the software.
+
+By installing or using the software you agree to these terms.
+
+https://www.vistaar.space/

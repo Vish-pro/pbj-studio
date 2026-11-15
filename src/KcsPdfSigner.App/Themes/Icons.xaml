@@ -1,0 +1,75 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Original monochrome icons for PB&amp;J Studio, drawn by hand on a 16x16 grid.
+        Each one is a stroke-only geometry; show it with
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Open}" />
+        so it takes the foreground of whatever hosts it (white normally, black when inverted).
+    -->
+
+    <!-- File -->
+    <Geometry x:Key="Icon.Open">M1.5,4.5 L6,4.5 L7.5,6 L14.5,6 L14.5,13.5 L1.5,13.5 Z M1.5,8 L14.5,8</Geometry>
+    <Geometry x:Key="Icon.Save">M2.5,2.5 L11.5,2.5 L13.5,4.5 L13.5,13.5 L2.5,13.5 Z M5,2.5 L5,6 L10.5,6 L10.5,2.5 M5,13.5 L5,9.5 L11,9.5 L11,13.5</Geometry>
+    <Geometry x:Key="Icon.Print">M4.5,6 L4.5,1.5 L11.5,1.5 L11.5,6 M4.5,11.5 L2.5,11.5 L2.5,6 L13.5,6 L13.5,11.5 L11.5,11.5 M4.5,9.5 L11.5,9.5 L11.5,14.5 L4.5,14.5 Z</Geometry>
+    <Geometry x:Key="Icon.Document">M3.5,1.5 L10,1.5 L12.5,4 L12.5,14.5 L3.5,14.5 Z M10,1.5 L10,4 L12.5,4 M5.5,7.5 L10.5,7.5 M5.5,10 L10.5,10 M5.5,12.5 L8.5,12.5</Geometry>
+    <Geometry x:Key="Icon.Close">M4,4 L12,12 M12,4 L4,12</Geometry>
+
+    <!-- Edit -->
+    <Geometry x:Key="Icon.Undo">M5,3 L2,6 L5,9 M2,6 L10,6 C12.5,6 14,7.5 14,10 C14,12.5 12.5,14 10,14 L7,14</Geometry>
+    <Geometry x:Key="Icon.Redo">M11,3 L14,6 L11,9 M14,6 L6,6 C3.5,6 2,7.5 2,10 C2,12.5 3.5,14 6,14 L9,14</Geometry>
+    <Geometry x:Key="Icon.Search">M1.5,6.5 A5,5 0 1 1 11.5,6.5 A5,5 0 1 1 1.5,6.5 Z M10.2,10.2 L14.5,14.5</Geometry>
+    <Geometry x:Key="Icon.Trash">M2.5,4 L13.5,4 M6,4 L6,2 L10,2 L10,4 M4,4 L4.8,14.5 L11.2,14.5 L12,4 M6.5,7 L6.5,12 M9.5,7 L9.5,12</Geometry>
+
+    <!-- Navigation -->
+    <Geometry x:Key="Icon.PageUp">M3.5,10 L8,5.5 L12.5,10</Geometry>
+    <Geometry x:Key="Icon.PageDown">M3.5,6 L8,10.5 L12.5,6</Geometry>
+    <Geometry x:Key="Icon.ChevronRight">M6,3.5 L10.5,8 L6,12.5</Geometry>
+    <Geometry x:Key="Icon.ChevronLeft">M10,3.5 L5.5,8 L10,12.5</Geometry>
+    <Geometry x:Key="Icon.First">M3.5,3 L3.5,13 M12,3.5 L7.5,8 L12,12.5</Geometry>
+    <Geometry x:Key="Icon.Last">M12.5,3 L12.5,13 M4,3.5 L8.5,8 L4,12.5</Geometry>
+
+    <!-- View -->
+    <Geometry x:Key="Icon.ZoomIn">M1.5,6.5 A5,5 0 1 1 11.5,6.5 A5,5 0 1 1 1.5,6.5 Z M10.2,10.2 L14.5,14.5 M4,6.5 L9,6.5 M6.5,4 L6.5,9</Geometry>
+    <Geometry x:Key="Icon.ZoomOut">M1.5,6.5 A5,5 0 1 1 11.5,6.5 A5,5 0 1 1 1.5,6.5 Z M10.2,10.2 L14.5,14.5 M4,6.5 L9,6.5</Geometry>
+    <Geometry x:Key="Icon.FitWidth">M1.5,3.5 L14.5,3.5 L14.5,12.5 L1.5,12.5 Z M4,8 L12,8 M5.5,6.5 L4,8 L5.5,9.5 M10.5,6.5 L12,8 L10.5,9.5</Geometry>
+    <Geometry x:Key="Icon.FitPage">M4,1.5 L12,1.5 L12,14.5 L4,14.5 Z M8,4 L8,12 M6.5,5.5 L8,4 L9.5,5.5 M6.5,10.5 L8,12 L9.5,10.5</Geometry>
+    <Geometry x:Key="Icon.ActualSize">M1.5,3.5 L14.5,3.5 L14.5,12.5 L1.5,12.5 Z M4.5,6.5 L5.5,6 L5.5,10.5 M10.5,6.5 L11.5,6 L11.5,10.5 M8.5,7 L8.5,7.6 M8.5,9.4 L8.5,10</Geometry>
+    <Geometry x:Key="Icon.RotateCw">M13.5,8 A5.5,5.5 0 1 1 11.9,4.1 M12,1.2 L12,4.2 L9,4.2</Geometry>
+    <Geometry x:Key="Icon.RotateCcw">M2.5,8 A5.5,5.5 0 1 0 4.1,4.1 M4,1.2 L4,4.2 L7,4.2</Geometry>
+    <Geometry x:Key="Icon.FullScreen">M1.5,5.5 L1.5,1.5 L5.5,1.5 M10.5,1.5 L14.5,1.5 L14.5,5.5 M14.5,10.5 L14.5,14.5 L10.5,14.5 M5.5,14.5 L1.5,14.5 L1.5,10.5</Geometry>
+    <Geometry x:Key="Icon.Hand">M5,8.5 L5,3.5 C5,2.3 6.8,2.3 6.8,3.5 L6.8,7.5 M6.8,7 L6.8,2.5 C6.8,1.3 8.6,1.3 8.6,2.5 L8.6,7 M8.6,7 L8.6,3 C8.6,1.8 10.4,1.8 10.4,3 L10.4,7.5 M10.4,7.5 L10.4,5 C10.4,3.8 12.2,3.8 12.2,5 L12.2,10 C12.2,12.8 10.5,14.5 8,14.5 C6,14.5 5,13.5 3.8,11.5 L2.3,8.8 C1.8,7.8 3.2,7 3.9,7.9 L5,9.5</Geometry>
+
+    <!-- Panes -->
+    <Geometry x:Key="Icon.Thumbnails">M2.5,1.5 L7,1.5 L7,7 L2.5,7 Z M2.5,9 L7,9 L7,14.5 L2.5,14.5 Z M9,2.5 L14,2.5 M9,4.5 L13,4.5 M9,10 L14,10 M9,12 L13,12</Geometry>
+    <Geometry x:Key="Icon.Bookmark">M4,1.5 L12,1.5 L12,14.5 L8,11 L4,14.5 Z</Geometry>
+    <Geometry x:Key="Icon.Shield">M8,1.5 L13.5,3.5 L13.5,8 C13.5,11 11,13.5 8,14.5 C5,13.5 2.5,11 2.5,8 L2.5,3.5 Z M5.5,8 L7.5,10 L10.5,6</Geometry>
+    <Geometry x:Key="Icon.Comment">M1.5,2.5 L14.5,2.5 L14.5,10.5 L7,10.5 L4,13.5 L4,10.5 L1.5,10.5 Z M4,5.5 L12,5.5 M4,7.8 L9.5,7.8</Geometry>
+    <Geometry x:Key="Icon.PanelLeft">M1.5,2.5 L14.5,2.5 L14.5,13.5 L1.5,13.5 Z M5.5,2.5 L5.5,13.5</Geometry>
+    <Geometry x:Key="Icon.PanelRight">M1.5,2.5 L14.5,2.5 L14.5,13.5 L1.5,13.5 Z M10.5,2.5 L10.5,13.5</Geometry>
+
+    <!-- Tools -->
+    <Geometry x:Key="Icon.MultiSign">M1.5,12 C2.5,9.5 3.5,14 4.8,11.8 C6,9.6 6.8,14 8.2,11.8 M8.5,9.5 L13,5 L14.5,6.5 L10,11 L8,11.5 Z M11.5,6.5 L13,8 M1.5,14.5 L14.5,14.5 M2,3 L3.5,1.5 M2,1.5 L3.5,3 M5.5,3 L7,1.5 M5.5,1.5 L7,3</Geometry>
+    <Geometry x:Key="Icon.Pen">M2,14 L2.5,11 L10.5,3 L13,5.5 L5,13.5 Z M9,4.5 L11.5,7</Geometry>
+    <Geometry x:Key="Icon.Form">M1.5,2.5 L14.5,2.5 L14.5,13.5 L1.5,13.5 Z M3.5,5.5 L12.5,5.5 M3.5,8 L8.5,8 M3.5,10.5 L6,10.5 M9.5,10 L10.8,11.3 L13,8.8</Geometry>
+    <Geometry x:Key="Icon.Pages">M1.5,1.5 L6.5,1.5 L6.5,6.5 L1.5,6.5 Z M9.5,1.5 L14.5,1.5 L14.5,6.5 L9.5,6.5 Z M1.5,9.5 L6.5,9.5 L6.5,14.5 L1.5,14.5 Z M9.5,9.5 L14.5,9.5 L14.5,14.5 L9.5,14.5 Z</Geometry>
+    <Geometry x:Key="Icon.Combine">M2.5,1.5 L8.5,1.5 L8.5,9.5 L2.5,9.5 Z M7.5,6.5 L13.5,6.5 L13.5,14.5 L7.5,14.5 Z M10.5,2.5 L13,2.5 L13,5 M11.5,4 L13,2.5</Geometry>
+    <Geometry x:Key="Icon.EditText">M1.5,3 L9.5,3 M5.5,3 L5.5,13 M3.5,13 L7.5,13 M9,13.5 L9.5,11 L13,7.5 L14.5,9 L11,12.5 Z</Geometry>
+    <Geometry x:Key="Icon.Redact">M1.5,3 L14.5,3 M1.5,6.5 L14.5,6.5 L14.5,10 L1.5,10 Z M2.5,8.2 L13.5,8.2 M1.5,13.5 L10,13.5</Geometry>
+    <Geometry x:Key="Icon.Lock">M3.5,7.5 L12.5,7.5 L12.5,14.5 L3.5,14.5 Z M5.5,7.5 L5.5,5 C5.5,1.8 10.5,1.8 10.5,5 L10.5,7.5 M8,10 L8,12</Geometry>
+    <Geometry x:Key="Icon.Export">M8,1.5 L8,10 M5,4.5 L8,1.5 L11,4.5 M5.5,7.5 L1.5,7.5 L1.5,14.5 L14.5,14.5 L14.5,7.5 L10.5,7.5</Geometry>
+    <Geometry x:Key="Icon.Info">M1.5,8 A6.5,6.5 0 1 1 14.5,8 A6.5,6.5 0 1 1 1.5,8 Z M8,7 L8,11.5 M8,4.5 L8,4.9</Geometry>
+    <Geometry x:Key="Icon.Speaker">M2,6 L5,6 L8.5,2.5 L8.5,13.5 L5,10 L2,10 Z M10.5,5.5 C12,7 12,9 10.5,10.5 M12.3,3.5 C14.8,6 14.8,10 12.3,12.5</Geometry>
+    <Geometry x:Key="Icon.Tools">M2,4 L14,4 M2,8 L14,8 M2,12 L14,12 M5,2.5 L5,5.5 M10.5,6.5 L10.5,9.5 M7,10.5 L7,13.5</Geometry>
+    <Geometry x:Key="Icon.Plus">M8,3 L8,13 M3,8 L13,8</Geometry>
+    <Geometry x:Key="Icon.Minus">M3,8 L13,8</Geometry>
+    <Geometry x:Key="Icon.Check">M2.5,8.5 L6,12 L13.5,4</Geometry>
+    <Geometry x:Key="Icon.Refresh">M13.5,8 A5.5,5.5 0 1 1 11.9,4.1 M12,1.2 L12,4.2 L9,4.2</Geometry>
+    <Geometry x:Key="Icon.Target">M1.5,8 A6.5,6.5 0 1 1 14.5,8 A6.5,6.5 0 1 1 1.5,8 Z M5,8 A3,3 0 1 1 11,8 A3,3 0 1 1 5,8 Z M8,0.5 L8,3 M8,13 L8,15.5 M0.5,8 L3,8 M13,8 L15.5,8</Geometry>
+
+    <!-- Dialog glyphs -->
+    <Geometry x:Key="Icon.Warning">M8,1.5 L15,14 L1,14 Z M8,6 L8,10 M8,11.8 L8,12.2</Geometry>
+    <Geometry x:Key="Icon.Error">M1.5,8 A6.5,6.5 0 1 1 14.5,8 A6.5,6.5 0 1 1 1.5,8 Z M5.5,5.5 L10.5,10.5 M10.5,5.5 L5.5,10.5</Geometry>
+    <Geometry x:Key="Icon.Question">M1.5,8 A6.5,6.5 0 1 1 14.5,8 A6.5,6.5 0 1 1 1.5,8 Z M6,6.2 C6,4.6 7,4 8,4 C9.2,4 10,4.8 10,5.8 C10,7.4 8,7.4 8,9.2 M8,11.3 L8,11.7</Geometry>
+
+</ResourceDictionary>

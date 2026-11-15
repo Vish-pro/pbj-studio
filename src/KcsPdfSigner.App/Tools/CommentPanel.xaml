@@ -1,0 +1,90 @@
+<UserControl x:Class="KcsPdfSigner.App.Tools.CommentPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="12,4,12,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock x:Name="NoDocumentText" Text="Open a PDF to add comments." Style="{StaticResource Hint}" Margin="0,6,0,0" />
+
+            <TextBlock Text="Tool" Style="{StaticResource SectionHeading}" />
+            <WrapPanel x:Name="ToolButtons">
+                <ToggleButton Content="Highlight" Tag="Highlight" Margin="0,0,4,4" Click="OnToolClicked" ToolTip="Drag a box over text" />
+                <ToggleButton Content="Underline" Tag="Underline" Margin="0,0,4,4" Click="OnToolClicked" ToolTip="Drag a box over text" />
+                <ToggleButton Content="Strikeout" Tag="StrikeOut" Margin="0,0,4,4" Click="OnToolClicked" ToolTip="Drag a box over text" />
+                <ToggleButton Content="Note" Tag="Note" Margin="0,0,4,4" Click="OnToolClicked" ToolTip="Click where the note goes" />
+                <ToggleButton Content="Free text" Tag="FreeText" Margin="0,0,4,4" Click="OnToolClicked" ToolTip="Drag a box, then type" />
+                <ToggleButton Content="Rectangle" Tag="Rectangle" Margin="0,0,4,4" Click="OnToolClicked" ToolTip="Drag a box" />
+                <ToggleButton Content="Ellipse" Tag="Ellipse" Margin="0,0,4,4" Click="OnToolClicked" ToolTip="Drag a box" />
+                <ToggleButton Content="Line" Tag="Line" Margin="0,0,4,4" Click="OnToolClicked" ToolTip="Drag from start to end" />
+                <ToggleButton Content="Freehand" Tag="Ink" Margin="0,0,4,4" Click="OnToolClicked" ToolTip="Draw with the mouse" />
+                <ToggleButton Content="Stamp" Tag="Stamp" Margin="0,0,4,4" Click="OnToolClicked" ToolTip="Drag a box for the stamp" />
+            </WrapPanel>
+            <TextBlock x:Name="ToolHint" Style="{StaticResource Hint}" Text="Pick a tool, then work on the page. Esc cancels a drag." Margin="0,2,0,0" />
+
+            <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="70" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="Author" VerticalAlignment="Center" />
+                <TextBox x:Name="AuthorBox" Grid.Column="1" />
+                <TextBlock Grid.Row="1" Text="Colour" VerticalAlignment="Center" Margin="0,6,0,0" />
+                <ComboBox x:Name="ColourCombo" Grid.Row="1" Grid.Column="1" Margin="0,6,0,0" SelectedIndex="0">
+                    <ComboBoxItem Content="Default (yellow highlight, black)" />
+                    <ComboBoxItem Content="Red" />
+                    <ComboBoxItem Content="Blue" />
+                    <ComboBoxItem Content="Green" />
+                    <ComboBoxItem Content="Yellow" />
+                    <ComboBoxItem Content="Black" />
+                </ComboBox>
+                <TextBlock Grid.Row="2" Text="Stamp" VerticalAlignment="Center" Margin="0,6,0,0" />
+                <ComboBox x:Name="StampCombo" Grid.Row="2" Grid.Column="1" Margin="0,6,0,0" IsEditable="True" Text="APPROVED">
+                    <ComboBoxItem Content="APPROVED" />
+                    <ComboBoxItem Content="REVIEWED" />
+                    <ComboBoxItem Content="VERIFIED" />
+                    <ComboBoxItem Content="CONFIDENTIAL" />
+                    <ComboBoxItem Content="DRAFT" />
+                    <ComboBoxItem Content="FINAL" />
+                    <ComboBoxItem Content="NOT APPROVED" />
+                    <ComboBoxItem Content="FOR COMMENT" />
+                    <ComboBoxItem Content="VOID" />
+                </ComboBox>
+                <TextBlock Grid.Row="3" Text="Note text" VerticalAlignment="Top" Margin="0,9,0,0" />
+                <TextBox x:Name="NoteTextBox" Grid.Row="3" Grid.Column="1" Margin="0,6,0,0" Height="52"
+                         AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                         ToolTip="Optional text attached to highlights and shapes" />
+            </Grid>
+
+            <TextBlock Text="Comments in this document" Style="{StaticResource SectionHeading}" />
+            <TextBlock x:Name="ListStatus" Style="{StaticResource Hint}" />
+        </StackPanel>
+
+        <ListView x:Name="CommentList" Grid.Row="1" Margin="0,4,0,0" MinHeight="120"
+                  SelectionMode="Single" SelectionChanged="OnCommentSelected">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Page" Width="42" DisplayMemberBinding="{Binding PageNumber}" />
+                    <GridViewColumn Header="Kind" Width="74" DisplayMemberBinding="{Binding Kind}" />
+                    <GridViewColumn Header="Author" Width="70" DisplayMemberBinding="{Binding Author}" />
+                    <GridViewColumn Header="Text" Width="160" DisplayMemberBinding="{Binding ShortText}" />
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+            <Button x:Name="DeleteButton" Content="Delete" Click="OnDeleteClicked" IsEnabled="False" />
+            <Button Content="Refresh" Margin="6,0,0,0" Click="OnRefreshClicked" />
+        </StackPanel>
+    </Grid>
+</UserControl>

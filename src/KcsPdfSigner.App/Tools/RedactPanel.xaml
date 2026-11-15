@@ -1,0 +1,37 @@
+<UserControl x:Class="KcsPdfSigner.App.Tools.RedactPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="12,4,12,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock x:Name="NoDocumentText" Text="Open a PDF to redact it." Style="{StaticResource Hint}" Margin="0,6,0,0" />
+            <TextBlock Text="1. Mark areas" Style="{StaticResource SectionHeading}" />
+            <ToggleButton x:Name="MarkToggle" Content="Mark areas on the page" HorizontalAlignment="Left"
+                          IsChecked="True" Click="OnMarkToggled" />
+            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Text="Drag boxes over the text, images or drawings to remove. Marked areas are only drawn on screen until you apply them." />
+            <TextBlock Text="Marked areas" Style="{StaticResource SectionHeading}" />
+            <TextBlock x:Name="CountText" Style="{StaticResource Hint}" Text="None yet." />
+        </StackPanel>
+
+        <ListBox x:Name="AreaList" Grid.Row="1" Margin="0,4,0,0" MinHeight="80"
+                 SelectionChanged="OnAreaSelected" DisplayMemberPath="Label" />
+
+        <StackPanel Grid.Row="2" Margin="0,8,0,0">
+            <WrapPanel>
+                <Button x:Name="RemoveButton" Content="Remove" Margin="0,0,6,6" Click="OnRemoveClicked" IsEnabled="False" />
+                <Button x:Name="ClearButton" Content="Clear all" Margin="0,0,6,6" Click="OnClearClicked" IsEnabled="False" />
+            </WrapPanel>
+            <TextBlock Text="2. Apply" Style="{StaticResource SectionHeading}" />
+            <Button x:Name="ApplyButton" Content="Apply redactions" Style="{StaticResource PrimaryButton}" Padding="14,5"
+                    HorizontalAlignment="Left" Click="OnApplyClicked" IsEnabled="False" />
+            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Text="Applying removes everything inside the boxes from the working copy for good and paints the boxes black. Save writes it to the file." />
+        </StackPanel>
+    </Grid>
+</UserControl>

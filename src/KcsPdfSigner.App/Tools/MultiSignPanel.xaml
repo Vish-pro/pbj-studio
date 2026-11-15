@@ -1,0 +1,204 @@
+<UserControl x:Class="KcsPdfSigner.App.Tools.MultiSignPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="12,4,12,12">
+
+                <Border BorderBrush="{StaticResource Brush.Faint}" BorderThickness="1" Padding="8,6" Margin="0,4,0,0">
+                    <DockPanel>
+                        <Path DockPanel.Dock="Left" Style="{StaticResource IconPath}" Data="{StaticResource Icon.Document}"
+                              Margin="0,0,8,0" />
+                        <TextBlock Text="{Binding DocumentName}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                    </DockPanel>
+                </Border>
+
+                <TextBlock Text="1. Certificate" Style="{StaticResource SectionHeading}" />
+                <ComboBox ItemsSource="{Binding Certificates}"
+                          SelectedItem="{Binding SelectedCertificate}"
+                          DisplayMemberPath="DisplayName"
+                          IsEnabled="{Binding IsIdle}" />
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <Button Content="Refresh" Command="{Binding RefreshCertificatesCommand}" />
+                    <CheckBox Content="Include expired" Margin="10,0,0,0"
+                              VerticalAlignment="Center"
+                              IsChecked="{Binding IncludeExpiredCertificates}" />
+                </StackPanel>
+                <Border BorderBrush="{StaticResource Brush.Subtle}" BorderThickness="1"
+                        Background="{StaticResource Brush.Wash}" Padding="8" Margin="0,6,0,0">
+                    <TextBlock Text="{Binding CertificateDetails}" FontSize="11" TextWrapping="Wrap" />
+                </Border>
+
+                <TextBlock Text="2. Signed copy" Style="{StaticResource SectionHeading}" />
+                <TextBlock Text="Save the signed copy as" Style="{StaticResource Hint}" />
+                <DockPanel Margin="0,2,0,0">
+                    <Button DockPanel.Dock="Right" Content="Browse" Margin="6,0,0,0"
+                            Command="{Binding BrowseOutputCommand}" />
+                    <TextBox Text="{Binding OutputPath, UpdateSourceTrigger=LostFocus}" />
+                </DockPanel>
+
+                <TextBlock Text="3. Where to sign" Style="{StaticResource SectionHeading}" />
+                <RadioButton GroupName="MultiSignMode" Content="Text anchors (auto)"
+                             IsChecked="{Binding IsAnchorMode}" Margin="0,2" />
+                <RadioButton GroupName="MultiSignMode" Content="Existing empty signature fields"
+                             IsChecked="{Binding IsExistingFieldMode}" Margin="0,2" />
+                <RadioButton GroupName="MultiSignMode" Content="Fixed position on pages"
+                             IsChecked="{Binding IsFixedMode}" Margin="0,2" />
+                <RadioButton GroupName="MultiSignMode" Content="Place by hand on the document"
+                             IsChecked="{Binding IsManualMode}" Margin="0,2" />
+                <TextBlock Text="{Binding ModeHint}" Style="{StaticResource Hint}" Margin="0,6,0,0" />
+
+                <!-- Text anchor settings -->
+                <StackPanel Visibility="{Binding IsAnchorMode, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="Keywords, one per line" Style="{StaticResource Hint}" Margin="0,10,0,2" />
+                    <TextBox Text="{Binding AnchorPhrasesText, UpdateSourceTrigger=LostFocus}"
+                             AcceptsReturn="True" Height="110"
+                             VerticalScrollBarVisibility="Auto"
+                             FontFamily="{StaticResource Font.Mono}" />
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Stamp sits" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding AlignOptions}" SelectedItem="{Binding Align}" />
+                    </Grid>
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="60" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="60" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Nudge X" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBox Grid.Column="1" Text="{Binding OffsetX, UpdateSourceTrigger=LostFocus}" />
+                        <TextBlock Grid.Column="2" Text="Y" VerticalAlignment="Center" Margin="12,0,6,0" />
+                        <TextBox Grid.Column="3" Text="{Binding OffsetY, UpdateSourceTrigger=LostFocus}" />
+                    </Grid>
+                </StackPanel>
+
+                <!-- Fixed position settings -->
+                <StackPanel Visibility="{Binding IsFixedMode, Converter={StaticResource BoolToVis}}">
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Pages" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding ScopeOptions}" SelectedItem="{Binding FixedScope}" />
+                    </Grid>
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Corner" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding CornerOptions}" SelectedItem="{Binding FixedCorner}" />
+                    </Grid>
+                </StackPanel>
+
+                <Grid Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="60" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="60" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Stamp W" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBox Grid.Column="1" Text="{Binding StampWidth, UpdateSourceTrigger=LostFocus}" />
+                    <TextBlock Grid.Column="2" Text="H" VerticalAlignment="Center" Margin="12,0,6,0" />
+                    <TextBox Grid.Column="3" Text="{Binding StampHeight, UpdateSourceTrigger=LostFocus}" />
+                </Grid>
+
+                <Button Content="Detect signing spots" Margin="0,10,0,0" Padding="10,6"
+                        Command="{Binding DetectCommand}" />
+
+                <TextBlock Text="4. Signature details" Style="{StaticResource SectionHeading}" />
+                <TextBlock Text="Reason" Style="{StaticResource Hint}" />
+                <TextBox Text="{Binding Reason, UpdateSourceTrigger=LostFocus}" />
+                <TextBlock Text="Location" Style="{StaticResource Hint}" Margin="0,8,0,0" />
+                <TextBox Text="{Binding Location, UpdateSourceTrigger=LostFocus}" />
+                <CheckBox Content="Draw name and date inside each signature"
+                          IsChecked="{Binding VisibleAppearance}" Margin="0,10,0,0" />
+                <TextBlock Text="Timestamp server (optional)" Style="{StaticResource Hint}" Margin="0,8,0,0" />
+                <TextBox Text="{Binding TimestampUrl, UpdateSourceTrigger=LostFocus}" />
+                <TextBlock Style="{StaticResource Hint}"
+                           Text="Leave blank to use this PC's clock. A timestamp server proves when you signed, independently of the clock." />
+
+                <!-- Review -->
+                <DockPanel Margin="0,16,0,4">
+                    <Button DockPanel.Dock="Right" Content="Clear all" Margin="6,0,0,0"
+                            Command="{Binding ClearPlacementsCommand}" />
+                    <Button DockPanel.Dock="Right" Content="Remove" Click="OnRemoveSelectedPlacement" />
+                    <TextBlock Text="5. Signing spots" FontWeight="SemiBold" VerticalAlignment="Center" />
+                </DockPanel>
+                <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
+                           Text="Untick a spot to leave it unsigned. Select a row to jump to it." />
+
+                <DataGrid x:Name="PlacementGrid" Height="200"
+                          ItemsSource="{Binding Placements}"
+                          AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                          SelectionChanged="OnPlacementSelectionChanged">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="Sign" Width="44">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox Style="{StaticResource GridCheckBox}"
+                                              IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="#" Width="30" IsReadOnly="True" Binding="{Binding Index}" />
+                        <DataGridTextColumn Header="Page" Width="44" IsReadOnly="True" Binding="{Binding Page}" />
+                        <DataGridTextColumn Header="Found by" Width="64" IsReadOnly="True" Binding="{Binding Source}" />
+                        <DataGridTextColumn Header="Matched" Width="*" MinWidth="80" IsReadOnly="True" Binding="{Binding Label}" />
+                        <DataGridTextColumn Header="Position" Width="150" IsReadOnly="True" Binding="{Binding Position}" />
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <TextBlock Text="Log" Style="{StaticResource SectionHeading}" />
+                <TextBox x:Name="LogBox" Style="{StaticResource LogBox}" Height="130"
+                         Text="{Binding LogText, Mode=OneWay}" TextChanged="OnLogChanged" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Always-visible action strip -->
+        <Border Grid.Row="1" BorderBrush="{StaticResource Brush.Line}" BorderThickness="0,1,0,0" Padding="12,8">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid>
+                    <ProgressBar Height="20" Value="{Binding ProgressValue, Mode=OneWay}"
+                                 Maximum="{Binding ProgressMaximum, Mode=OneWay}" />
+                    <TextBlock Text="{Binding StatusText}" HorizontalAlignment="Center"
+                               VerticalAlignment="Center" FontSize="11" />
+                </Grid>
+                <Grid Grid.Row="1" Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button Style="{StaticResource PrimaryButton}" Command="{Binding SignCommand}" Padding="18,6">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.MultiSign}" Margin="0,0,8,0" />
+                            <TextBlock Text="Sign all spots" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="1" Content="Cancel" Command="{Binding CancelCommand}" Margin="6,0,0,0" />
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

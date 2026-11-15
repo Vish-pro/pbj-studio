@@ -1,0 +1,16 @@
+<Window x:Class="KcsPdfSigner.App.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PB&amp;J - Paper Binder &amp; Jurat" Width="720" Height="480"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="NoResize"
+        Background="#FFFFFF" ShowInTaskbar="True" Cursor="Hand"
+        MouseLeftButtonDown="Skip" KeyDown="Skip">
+    <Border BorderBrush="#E4E4E4" BorderThickness="1">
+        <Grid>
+            <Image x:Name="FrameImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+            <TextBlock Text="Click to skip" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                       Margin="0,0,16,12" FontFamily="{StaticResource Font.Ui}" FontSize="11"
+                       Foreground="#000000" Opacity="0.45" />
+        </Grid>
+    </Border>
+</Window>

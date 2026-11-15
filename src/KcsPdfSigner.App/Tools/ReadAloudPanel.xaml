@@ -1,0 +1,40 @@
+<UserControl x:Class="KcsPdfSigner.App.Tools.ReadAloudPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="12,4,12,12">
+            <TextBlock x:Name="NoDocumentText" Style="{StaticResource Hint}" Margin="0,8,0,0"
+                       Text="Open a PDF to have it read aloud." />
+
+            <StackPanel x:Name="Sections">
+                <TextBlock Text="Read" Style="{StaticResource SectionHeading}" />
+                <RadioButton x:Name="CurrentPageRadio" GroupName="ReadAloudScope" Content="Current page" IsChecked="True" Margin="0,2" />
+                <RadioButton x:Name="WholeDocumentRadio" GroupName="ReadAloudScope" Content="Whole document" Margin="0,2" />
+
+                <TextBlock Text="Voice" Style="{StaticResource SectionHeading}" />
+                <ComboBox x:Name="VoiceBox" SelectionChanged="OnVoiceChanged" />
+
+                <TextBlock Text="Speed" Style="{StaticResource SectionHeading}" />
+                <DockPanel>
+                    <TextBlock x:Name="SpeedText" DockPanel.Dock="Right" Width="28" TextAlignment="Right" VerticalAlignment="Center" />
+                    <Slider x:Name="SpeedSlider" Minimum="-10" Maximum="10" Value="0" TickFrequency="1"
+                            IsSnapToTickEnabled="True" ValueChanged="OnSpeedChanged" />
+                </DockPanel>
+
+                <WrapPanel Margin="0,14,0,0">
+                    <Button x:Name="PlayButton" Style="{StaticResource PrimaryButton}" Padding="16,6" Margin="0,0,6,6" Click="OnPlay">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Speaker}" Margin="0,0,8,0" />
+                            <TextBlock x:Name="PlayText" Text="Play" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="PauseButton" Content="Pause" Padding="14,6" Margin="0,0,6,6" Click="OnPause" />
+                    <Button x:Name="StopButton" Content="Stop" Padding="14,6" Margin="0,0,6,6" Click="OnStop" />
+                </WrapPanel>
+
+                <TextBlock x:Name="StateText" Style="{StaticResource Hint}" Margin="0,6,0,0" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

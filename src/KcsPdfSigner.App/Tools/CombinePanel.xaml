@@ -1,0 +1,70 @@
+<UserControl x:Class="KcsPdfSigner.App.Tools.CombinePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Margin="12,4,12,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Files to combine" Style="{StaticResource SectionHeading}" />
+            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6"
+                       Text="PDFs and images (PNG, JPG, BMP, GIF, TIFF), joined top to bottom. Drop files on the list to add them." />
+            <WrapPanel>
+                <Button Margin="0,0,6,6" Click="OnAddFiles">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Plus}" Margin="0,0,6,0" />
+                        <TextBlock Text="Add files..." VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="AddCurrentButton" Margin="0,0,6,6" Content="Add open document" Click="OnAddCurrent"
+                        ToolTip="Add the document in the active tab, with its unsaved changes" />
+                <Button x:Name="RemoveButton" Margin="0,0,6,6" Click="OnRemove">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Trash}" Margin="0,0,6,0" />
+                        <TextBlock Text="Remove" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="UpButton" Margin="0,0,6,6" Click="OnMoveUp" ToolTip="Move up">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.PageUp}" />
+                </Button>
+                <Button x:Name="DownButton" Margin="0,0,6,6" Click="OnMoveDown" ToolTip="Move down">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.PageDown}" />
+                </Button>
+                <Button x:Name="ClearButton" Margin="0,0,6,6" Content="Clear" Click="OnClear" />
+            </WrapPanel>
+        </StackPanel>
+
+        <ListBox x:Name="FileList" Grid.Row="1" SelectionMode="Extended" AllowDrop="True"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 SelectionChanged="OnSelectionChanged" Drop="OnFilesDropped" DragOver="OnFilesDragOver"
+                 KeyDown="OnListKeyDown">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding Kind}" Margin="8,0,0,0" Opacity="0.7" FontSize="11"
+                                   VerticalAlignment="Center" />
+                        <StackPanel>
+                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding Folder}" TextTrimming="CharacterEllipsis" FontSize="10" Opacity="0.7" />
+                        </StackPanel>
+                    </DockPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Grid.Row="2">
+            <TextBlock x:Name="SummaryText" Style="{StaticResource Hint}" Margin="0,6,0,0" />
+            <Button x:Name="CombineButton" Style="{StaticResource PrimaryButton}" Margin="0,10,0,0" Padding="18,6"
+                    Click="OnCombine">
+                <StackPanel Orientation="Horizontal">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Combine}" Margin="0,0,8,0" />
+                    <TextBlock Text="Combine..." VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Grid>
+</UserControl>

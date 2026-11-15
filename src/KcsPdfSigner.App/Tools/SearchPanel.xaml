@@ -1,0 +1,44 @@
+<UserControl x:Class="KcsPdfSigner.App.Tools.SearchPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="12,4,12,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Find text" Style="{StaticResource SectionHeading}" />
+            <DockPanel>
+                <Button x:Name="SearchButton" DockPanel.Dock="Right" Content="Search" Margin="6,0,0,0" Click="OnSearchClicked" />
+                <TextBox x:Name="QueryBox" KeyDown="OnQueryKeyDown" />
+            </DockPanel>
+            <WrapPanel Margin="0,6,0,0">
+                <CheckBox x:Name="CaseCheck" Content="Match case" Margin="0,0,12,0" Click="OnOptionChanged" />
+                <CheckBox x:Name="WholeWordCheck" Content="Whole words" Click="OnOptionChanged" />
+            </WrapPanel>
+            <DockPanel Margin="0,8,0,0">
+                <Button x:Name="NextButton" DockPanel.Dock="Right" Content="Next" Margin="6,0,0,0" Click="OnNextClicked" IsEnabled="False" />
+                <Button x:Name="PreviousButton" DockPanel.Dock="Right" Content="Previous" Click="OnPreviousClicked" IsEnabled="False" />
+                <TextBlock x:Name="CountText" Style="{StaticResource Hint}" VerticalAlignment="Center" TextWrapping="Wrap" />
+            </DockPanel>
+        </StackPanel>
+
+        <ListBox x:Name="ResultList" Grid.Row="1" Margin="0,8,0,0" SelectionChanged="OnResultSelected"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Margin="0,2">
+                        <TextBlock Text="{Binding PageLabel}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding Snippet}" FontSize="11" TextWrapping="Wrap" Opacity="0.8" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <TextBlock Grid.Row="2" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,6,0,0"
+                   Text="Enter searches; Enter again goes to the next hit. Scanned pages without a text layer cannot be searched." />
+    </Grid>
+</UserControl>

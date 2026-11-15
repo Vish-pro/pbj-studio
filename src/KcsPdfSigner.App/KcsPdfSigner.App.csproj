@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\KcsPdfSigner.Core\KcsPdfSigner.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Speech" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Brand animation played by SplashWindow at start-up: a sequence of pre-rendered JPEG
+         frames (not a video file), decoded on demand. See SplashWindow.xaml.cs. -->
+    <Resource Include="Assets\splash.zip" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>PBJStudio</AssemblyName>
+    <RootNamespace>KcsPdfSigner.App</RootNamespace>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Product>PB&amp;J Studio</Product>
+    <Company>truevith.space and vistaar.space</Company>
+    <Authors>truevith.space and vistaar.space</Authors>
+    <Copyright>(c) 2026 truevith.space and vistaar.space</Copyright>
+    <Description>PB&amp;J Studio - Paper, Binder and Jurat. An all-round PDF tool with multi-location DSC signing.</Description>
+    <AssemblyTitle>PB&amp;J Studio</AssemblyTitle>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,33 @@
+<Project>
+  <!-- Release-only code protection (same recipe as the DBC app).
+       Run:  dotnet publish with the property Obfuscate set to true
+       Each project that has an obfuscar.body.xml next to its .csproj is scrambled right after it
+       compiles and before it is bundled into the final exe. Needs the Obfuscar tool:
+       dotnet tool install Obfuscar.GlobalTool as a global tool   (see README, "Building a protected release"). -->
+  <Target Name="ObfuscateRelease" AfterTargets="CoreCompile"
+          Condition="'$(Obfuscate)' == 'true' and Exists('$(MSBuildProjectDirectory)\obfuscar.body.xml') and !$(MSBuildProjectName.Contains('wpftmp'))">
+    <PropertyGroup>
+      <_ObfIn>@(IntermediateAssembly->'%(RootDir)%(Directory)')</_ObfIn>
+    </PropertyGroup>
+    <ItemGroup>
+      <_ObfDir Include="@(ReferencePath->'%(RootDir)%(Directory)')" Condition="!$([System.String]::Copy('%(RootDir)%(Directory)').Contains('\ref\'))" />
+      <_ObfDirU Include="@(_ObfDir->Distinct())" />
+      <_ObfSearch Include="@(_ObfDirU->'  &lt;AssemblySearchPath path=&quot;%(Identity)&quot; /&gt;')" />
+      <_ObfHead Include="&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;" />
+      <_ObfHead Include="&lt;Obfuscator&gt;" />
+      <_ObfHead Include="  &lt;Var name=&quot;InPath&quot; value=&quot;$(_ObfIn)&quot; /&gt;" />
+      <_ObfHead Include="  &lt;Var name=&quot;OutPath&quot; value=&quot;$(MSBuildProjectDirectory)\obj\obfuscated\$(MSBuildProjectName)&quot; /&gt;" />
+      <_ObfHead Include="  &lt;Var name=&quot;Asm&quot; value=&quot;$(AssemblyName)&quot; /&gt;" />
+      <_ObfRuntime Include="  &lt;AssemblySearchPath path=&quot;D:\dotnet\shared\Microsoft.NETCore.App\8.0.28&quot; /&gt;" />
+      <_ObfRuntime Include="  &lt;AssemblySearchPath path=&quot;D:\dotnet\shared\Microsoft.WindowsDesktop.App\8.0.28&quot; /&gt;" />
+      <_ObfTail Include="&lt;/Obfuscator&gt;" />
+    </ItemGroup>
+    <ReadLinesFromFile File="$(MSBuildProjectDirectory)\obfuscar.body.xml">
+      <Output TaskParameter="Lines" ItemName="_ObfBody" />
+    </ReadLinesFromFile>
+    <WriteLinesToFile File="$(MSBuildProjectDirectory)\obj\obfuscar.run.xml" Overwrite="true"
+                      Lines="@(_ObfHead);@(_ObfRuntime);@(_ObfSearch);@(_ObfBody);@(_ObfTail)" />
+    <Exec Command="&quot;$(USERPROFILE)\.dotnet\tools\obfuscar.console.exe&quot; &quot;$(MSBuildProjectDirectory)\obj\obfuscar.run.xml&quot;" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\obj\obfuscated\$(MSBuildProjectName)\$(AssemblyName).dll" DestinationFiles="@(IntermediateAssembly)" />
+  </Target>
+</Project>
