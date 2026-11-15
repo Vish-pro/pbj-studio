@@ -46,6 +46,7 @@ OutputDir=..\dist
 OutputBaseFilename=PBJStudio-Setup-{#AppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
+ChangesAssociations=yes
 CloseApplications=force
 RestartApplications=no
 
@@ -54,6 +55,18 @@ WelcomeLabel2=This will install [name/ver] on your computer.%n%nPaper, Binder an
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Shortcuts:"
+
+Name: "pdfassoc"; Description: "Offer {#AppShort} for opening PDF files (Windows lets you pick the default app)"; GroupDescription: "PDF files:"
+
+[Registry]
+Root: HKA; Subkey: "Software\Classes\PBJStudio.pdf"; ValueType: string; ValueData: "PDF Document (PB&J Studio)"; Flags: uninsdeletekey; Tasks: pdfassoc
+Root: HKA; Subkey: "Software\Classes\PBJStudio.pdf\DefaultIcon"; ValueType: string; ValueData: "{app}\{#AppExe},0"; Tasks: pdfassoc
+Root: HKA; Subkey: "Software\Classes\PBJStudio.pdf\shell\open\command"; ValueType: string; ValueData: """{app}\{#AppExe}"" ""%1"""; Tasks: pdfassoc
+Root: HKA; Subkey: "Software\Classes\.pdf\OpenWithProgids"; ValueType: string; ValueName: "PBJStudio.pdf"; ValueData: ""; Flags: uninsdeletevalue; Tasks: pdfassoc
+Root: HKA; Subkey: "Software\PBJStudio\Capabilities"; ValueType: string; ValueName: "ApplicationName"; ValueData: "{#AppName}"; Flags: uninsdeletekey; Tasks: pdfassoc
+Root: HKA; Subkey: "Software\PBJStudio\Capabilities"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "Paper, Binder and Jurat: view, fill, merge, protect and sign PDFs"; Tasks: pdfassoc
+Root: HKA; Subkey: "Software\PBJStudio\Capabilities\FileAssociations"; ValueType: string; ValueName: ".pdf"; ValueData: "PBJStudio.pdf"; Tasks: pdfassoc
+Root: HKA; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "PBJStudio"; ValueData: "Software\PBJStudio\Capabilities"; Flags: uninsdeletevalue; Tasks: pdfassoc
 
 [Files]
 Source: "..\release\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
@@ -65,6 +78,8 @@ Name: "{autodesktop}\{#AppShort}"; Filename: "{app}\{#AppExe}"; Comment: "{#AppN
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Launch {#AppShort}"; Flags: postinstall nowait skipifsilent
+
+Filename: "ms-settings:defaultapps"; Description: "Open Windows Settings to choose {#AppShort} as the default PDF app"; Flags: postinstall shellexec nowait skipifsilent; Tasks: pdfassoc
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM ""{#AppExe}"""; Flags: runhidden; RunOnceId: "StopPBJ"
