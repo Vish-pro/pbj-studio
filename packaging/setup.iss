@@ -66,6 +66,9 @@ Root: HKA; Subkey: "Software\Classes\.pdf\OpenWithProgids"; ValueType: string; V
 Root: HKA; Subkey: "Software\PBJStudio\Capabilities"; ValueType: string; ValueName: "ApplicationName"; ValueData: "{#AppName}"; Flags: uninsdeletekey; Tasks: pdfassoc
 Root: HKA; Subkey: "Software\PBJStudio\Capabilities"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "Paper, Binder and Jurat: view, fill, merge, protect and sign PDFs"; Tasks: pdfassoc
 Root: HKA; Subkey: "Software\PBJStudio\Capabilities\FileAssociations"; ValueType: string; ValueName: ".pdf"; ValueData: "PBJStudio.pdf"; Tasks: pdfassoc
+Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}"; ValueType: string; ValueName: "FriendlyAppName"; ValueData: "{#AppName}"; Flags: uninsdeletekey; Tasks: pdfassoc
+Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}\shell\open\command"; ValueType: string; ValueData: """{app}\{#AppExe}"" ""%1"""; Tasks: pdfassoc
+Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}\SupportedTypes"; ValueType: string; ValueName: ".pdf"; ValueData: ""; Tasks: pdfassoc
 Root: HKA; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "PBJStudio"; ValueData: "Software\PBJStudio\Capabilities"; Flags: uninsdeletevalue; Tasks: pdfassoc
 
 [Files]
