@@ -20,7 +20,7 @@ Black-and-white interface. All code and icons are original.
 
 ## Install
 
-1. Download `PBJStudio-Setup-1.0.0.exe` from the **Releases** page of this repository.
+1. Download `PBJStudio-Setup-1.1.0.exe` from the **Releases** page of this repository.
 2. Your browser may warn that the file "isn't commonly downloaded". This is normal for new free software
    without a paid code-signing certificate. In **Edge**: open Downloads (Ctrl+J), click the **...** next to the
    file, choose **Keep**, then **Show more** > **Keep anyway**. In **Chrome**: click the warning, then **Keep**.
@@ -58,11 +58,41 @@ The program works on a private copy. Your original file is not changed until you
 3. Plug in your token, choose your certificate and click **Sign**.
 4. Enter the token PIN when asked. The signed file opens in a new tab.
 
+## Preferences (Ctrl+K)
+
+Open **Edit > Preferences** or press Ctrl+K. Everything here takes effect as soon as you press OK.
+
+| Setting | What it does |
+|---|---|
+| Open PDFs from the last session | Reopens the documents you had open when you last closed the app. |
+| Ask before closing with several documents open | Shows a question before the window closes with two or more documents open. |
+| Create links from web addresses | Web addresses (http, https, www) in the text become clickable; click one and confirm to open it in your browser. |
+| Highlight form fields on open | Shades every form field when a document opens. |
+| Single-key tool shortcuts | V = Select text, H = Hand, G = Snapshot. |
+| Quick actions after selecting text | A small bar with Copy, Highlight and Search appears under your selection. |
+| Mouse wheel zoom | The wheel alone zooms; Shift + wheel scrolls. |
+| Snapshot options | Fixed resolution in pixels per inch, and "open each snapshot as a one-page PDF" so you can mark it up. |
+| Touch mode | Auto, always on (125% larger interface) or off. Menus keep their normal size. |
+| Scale for screen | Auto follows the Windows display scale; "No scaling" draws the interface at 100%. |
+| Do not show edit warnings | Skips the question before redacting or flattening a form. Untick it (Reset all warnings) to see them again. |
+
+**Select tool (V):** drag over text; the selected lines are shaded. Ctrl+C copies, or use the quick actions.
+**Snapshot tool (G):** drag an area; it is copied to the clipboard as a picture, ready to paste.
+**File > Send to WhatsApp:** saves a copy of the open PDF (with your current changes), puts the file on the
+clipboard and opens WhatsApp. In the chat, press Ctrl+V or drag the file in from the Explorer window that opens.
+
+Settings are stored in `%APPDATA%\KcsPdfStudio\settings.json`.
+
+**Not included, and why:** online storage options (the app has no cloud features), "read articles" and
+image-first selection (the viewer has no article or image selection), and Explorer thumbnail previews
+for PDFs (they need a native Windows shell extension that cannot be shipped safely from a .NET app).
+
 ## Keyboard shortcuts
 
 Ctrl+O open - Ctrl+S save - Ctrl+Shift+S save as - Ctrl+P print - Ctrl+W close tab -
 Ctrl+Z / Ctrl+Y undo / redo - Ctrl+F find - Ctrl+G go to page -
-Ctrl+0 / 1 / 2 fit page / actual size / fit width - F11 full screen.
+Ctrl+0 / 1 / 2 fit page / actual size / fit width - Ctrl+K preferences - F11 full screen.
+With single-key shortcuts turned on: V select text - H hand - G snapshot.
 
 ## If something goes wrong
 
@@ -79,6 +109,7 @@ KcsPdfSigner.sln                   solution
 src/KcsPdfSigner.Core              signing engine, detection, document operations (no UI)
 src/KcsPdfSigner.App               WPF application (assembly PBJStudio.exe)
 tools/SignerSmokeTest              end-to-end check of the engine and every document operation, no token needed
+tools/UiSmokeTest                  builds the real windows in-process and checks Preferences, select, highlight, snapshot, form fields and touch mode
 packaging/                         Inno Setup script, wizard images, installer licence
 brand/                             logo sources and the splash-animation generator (Python)
 Directory.Build.targets            release-only code protection (Obfuscar)
@@ -105,6 +136,13 @@ prints PASS or FAIL and the exit code is 0 only when all pass.
 dotnet run --project tools/SignerSmokeTest/SignerSmokeTest.csproj
 ```
 
+Then run the UI check (it opens the real windows briefly, changes no screen settings, and restores your
+`settings.json` afterwards; run the engine smoke test first because it creates the test PDFs):
+
+```bash
+dotnet run --project tools/UiSmokeTest/UiSmokeTest.csproj
+```
+
 Then start the app on `%LOCALAPPDATA%\Temp\KcsPdfSignerSmokeTest\unsigned.pdf` and check it stays open
 and `%APPDATA%\KcsPdfStudio\error.log` gains no new entries.
 
@@ -118,6 +156,10 @@ and `%APPDATA%\KcsPdfStudio\error.log` gains no new entries.
   hand-drawn vector icons (`Themes/Icons.xaml`). `DocumentSession` keeps a working copy plus undo
   and redo stacks; each tool panel in `Tools/` acts on the active session through `Apply`, so every
   change is undoable. `Viewer/PdfViewer` renders visible pages lazily.
+- **Preferences** live in `Services/AppSettings.cs` (stored in `settings.json`) and `Dialogs/PreferencesDialog`.
+  The features they switch are in `MainWindow.Features.cs` (tools, links, form highlights, snapshot,
+  Send to WhatsApp, session restore, touch and scaling). Text regions come from
+  `Core/Documents/PdfTextRegions.cs`. Every setting must change real behaviour; do not add dead checkboxes.
 - **Splash**: the start-up animation is a zip of pre-rendered JPEG frames (`Assets/splash.zip`).
   `brand/generator/splashgen-v6/splash_v6.py` regenerates it (Python with Pillow, numpy, OpenCV and
   imageio-ffmpeg): `python -I splash_v6.py`.
@@ -156,7 +198,7 @@ Build the installer with [Inno Setup 6](https://jrsoftware.org/isinfo.php):
 ISCC.exe packaging/setup.iss
 ```
 
-The installer is written to `dist/PBJStudio-Setup-1.0.0.exe`. Upload it to a GitHub Release; do not
+The installer is written to `dist/PBJStudio-Setup-1.1.0.exe`. Upload it to a GitHub Release; do not
 commit it. To change the version, edit `Version` in `KcsPdfSigner.App.csproj` and `AppVersion` in `setup.iss`.
 
 ## Credits

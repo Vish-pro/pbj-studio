@@ -32,6 +32,8 @@ public partial class App : Application
             window.Show();
             window.Activate();
 
+            if (Services.AppSettings.Current.ReopenLastSession) window.RestoreLastSession();
+
             // Supports dragging PDFs onto the executable, or a shortcut that names them.
             foreach (var argument in e.Args)
             {

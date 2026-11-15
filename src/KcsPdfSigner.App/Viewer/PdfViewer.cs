@@ -1049,7 +1049,18 @@ public sealed class PdfViewer : UserControl
 
     private void OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if ((Keyboard.Modifiers & ModifierKeys.Control) == 0 || _slots.Count == 0) return;
+        if (_slots.Count == 0) return;
+
+        var wheelZoom = Services.AppSettings.Current.MouseWheelZoom;
+        if (wheelZoom && (Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+        {
+            // With wheel zoom on, Shift + wheel scrolls the page.
+            _scroll.ScrollToVerticalOffset(_scroll.VerticalOffset - e.Delta);
+            e.Handled = true;
+            return;
+        }
+
+        if ((Keyboard.Modifiers & ModifierKeys.Control) == 0 && !wheelZoom) return;
 
         var factor = Math.Pow(1.1, e.Delta / 120.0);
         _zoomMode = ZoomMode.Custom;

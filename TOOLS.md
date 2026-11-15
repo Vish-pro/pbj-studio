@@ -5,6 +5,7 @@
 | Protected release build | `Directory.Build.targets`, `src/*/obfuscar.body.xml` | Before shipping. `dotnet publish src/KcsPdfSigner.App/KcsPdfSigner.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:Obfuscate=true -o release` (Obfuscar tool in `%USERPROFILE%\.dotnet	ools`). |
 | Installer | `packaging/setup.iss` | After the protected build: `ISCC.exe packaging/setup.iss` (Inno Setup at `%LOCALAPPDATA%\Programs\Inno Setup 6`) writes `dist/PBJStudio-Setup-1.0.0.exe`. |
 | Splash generator | `brand/generator/splashgen-v6/splash_v6.py` | To change the start-up animation: `python -I splash_v6.py` writes `splash-v6.mp4` and `splash-v6.zip` (copy the zip to `src/.../Assets/splash.zip`). About 4 minutes. |
+| UI smoke test | `tools/UiSmokeTest` | After any change to the App (Preferences, tools, viewer). Run the engine smoke test first. `dotnet run --project tools/UiSmokeTest/UiSmokeTest.csproj`; prints PASS/FAIL per check. |
 | Smoke test | `tools/SignerSmokeTest` | After any change to `src/KcsPdfSigner.Core` (signing engine or document operations), and before a release. Needs no DSC token. |
 
 ## Smoke test

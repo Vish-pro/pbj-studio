@@ -88,6 +88,7 @@ public partial class MainWindow : Window, IStudioHost
         AboutCommand = new RelayCommand(ShowAbout);
 
         DataContext = this;
+        InitFeatures();
 
         NavPane.PageRequested += (_, page) => _active?.Viewer.GoToPage(page);
         DragOver += OnDragOver;
@@ -265,6 +266,7 @@ public partial class MainWindow : Window, IStudioHost
         RecentFiles.Add(fullPath);
         BuildRecentMenu();
         SetStatus($"Opened {session.FileName} ({session.PageCount} page(s)).");
+        AttachFeatures(tab);
         return session;
     }
 
@@ -342,6 +344,12 @@ public partial class MainWindow : Window, IStudioHost
 
     private void OnWindowClosing(object? sender, CancelEventArgs e)
     {
+        if (!ConfirmCloseMany())
+        {
+            e.Cancel = true;
+            return;
+        }
+
         foreach (var tab in _tabs.Where(t => t.Session.IsDirty).ToList())
         {
             DocumentTabs.SelectedItem = tab.Item;
@@ -354,6 +362,7 @@ public partial class MainWindow : Window, IStudioHost
             }
         }
 
+        RememberSession();
         _openTool?.Panel.Detach();
         foreach (var tab in _tabs) tab.Session.Dispose();
     }
@@ -427,6 +436,7 @@ public partial class MainWindow : Window, IStudioHost
     {
         if (ReferenceEquals(tab, _active) && tab is not null) return;
 
+        ResetPointerTool();
         _openTool?.Panel.Detach();
         _active = tab;
 
@@ -863,6 +873,7 @@ public partial class MainWindow : Window, IStudioHost
 
     private void OpenToolEntry(ToolEntry entry)
     {
+        ResetPointerTool(entry);
         if (!ToolsPane.IsVisible && !_isFullScreen) SetToolsPaneVisible(true, remember: true);
 
         if (!ReferenceEquals(entry, _openTool))
@@ -957,7 +968,9 @@ public partial class MainWindow : Window, IStudioHost
             "Ctrl+F  Find\n" +
             "Ctrl+G  Go to page\n" +
             "Ctrl+0 / Ctrl+1 / Ctrl+2  Fit page / Actual size / Fit width\n" +
-            "Ctrl+Plus / Ctrl+Minus  Zoom in / out (or Ctrl+mouse wheel)\n" +
+            "Ctrl+Plus / Ctrl+Minus  Zoom in / out (or Ctrl+mouse wheel, or the wheel alone if turned on)\n" +
+            "Ctrl+K  Preferences\n" +
+            "V / H / G  Select / Hand / Snapshot tool (when turned on in Preferences)\n" +
             "PgUp / PgDn  Previous / next page\n" +
             "Home / End  First / last page\n" +
             "F11  Full screen\n" +

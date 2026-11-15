@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using KcsPdfSigner.App.Dialogs;
+using KcsPdfSigner.App.Services;
 using KcsPdfSigner.App.Documents;
 using KcsPdfSigner.App.Viewer;
 using KcsPdfSigner.Core.Documents;
@@ -122,8 +123,7 @@ public partial class RedactPanel : UserControl, IToolPanel
                 "While the document is open, Undo (Ctrl+Z) brings back the earlier working copy. " +
                 "Once you save, the removed content is gone from the saved file.";
 
-            if (MessageDialog.Show(_host?.Window, message, "Apply redactions", MessageBoxButton.OKCancel,
-                    MessageBoxImage.Warning) != MessageBoxResult.OK)
+            if (!AppSettings.ConfirmEdit(_host?.Window, message, "Apply redactions"))
             {
                 return false;
             }

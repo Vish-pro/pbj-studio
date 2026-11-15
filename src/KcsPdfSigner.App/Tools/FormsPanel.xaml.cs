@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using KcsPdfSigner.App.Dialogs;
+using KcsPdfSigner.App.Services;
 using KcsPdfSigner.App.Documents;
 using KcsPdfSigner.App.Viewer;
 using KcsPdfSigner.Core.Documents;
@@ -360,8 +361,7 @@ public partial class FormsPanel : UserControl, IToolPanel
                       "Undo (Ctrl+Z) still brings the fields back while the document is open.";
         if (pending) message += "\n\nValues you changed but did not apply are applied first.";
 
-        if (MessageDialog.Show(_host?.Window, message, "Flatten form", MessageBoxButton.OKCancel, MessageBoxImage.Question)
-            != MessageBoxResult.OK) return;
+        if (!AppSettings.ConfirmEdit(_host?.Window, message, "Flatten form")) return;
 
         if (pending && !await ApplyValuesAsync()) return;
 

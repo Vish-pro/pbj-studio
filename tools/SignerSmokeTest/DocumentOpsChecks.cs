@@ -347,6 +347,33 @@ internal static class DocumentOpsChecks
             Check(SignatureInspector.Read(threePages).Count == 0, "inspector: unsigned file reported signatures");
         });
 
+                Step("[17] PdfTextRegions (links and selection)", () =>
+        {
+            var linkPdf = F("links.pdf");
+            using (var writer = new PdfWriter(linkPdf))
+            using (var pdf = new PdfDocument(writer))
+            {
+                var doc = new Document(pdf, PageSize.A4);
+                doc.Add(new Paragraph("Visit https://example.com/path/page, then www.example.org."));
+                doc.Add(new Paragraph("Second line without a link."));
+                doc.Close();
+            }
+
+            var urls = PdfTextRegions.FindUrls(linkPdf);
+            Console.WriteLine($"    urls={string.Join(" | ", urls.Select(u => u.Url))}");
+            Check(urls.Count == 2, $"links: expected 2 urls, got {urls.Count}");
+            Check(urls.Count == 2 && urls[0].Url == "https://example.com/path/page" && urls[0].Width > 0,
+                "links: first url wrong or has no box");
+            Check(urls.Count == 2 && urls[1].Url == "https://www.example.org", "links: www url not normalised");
+
+            var first = urls[0];
+            var chosen = PdfTextRegions.SelectText(linkPdf, 1, first.Left - 2, first.Bottom - 2, first.Width + 4, first.Height + 4);
+            Console.WriteLine($"    selected='{chosen.Text}'");
+            Check(chosen.Text.Contains("example.com") && !chosen.Text.Contains("Second"), "selection: wrong text");
+            Check(chosen.LineBoxes.Count == 1, "selection: expected one line box");
+            Check(PdfTextRegions.SelectText(linkPdf, 1, 0, 0, 5, 5).Text.Length == 0, "selection: empty area returned text");
+        });
+
         Step("[16] Bad input", () =>
         {
             Check(Throws(() => PdfInfoReader.Read(F("missing.pdf"))), "missing file did not throw");
