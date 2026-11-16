@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Source Sans 3 (SIL Open Font License, see docs/licenses): the signature look when Myriad Pro is not on the PC. -->
+    <EmbeddedResource Include="Fonts\SourceSans3-Regular.otf" LogicalName="SourceSans3-Regular.otf" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="itext" Version="9.7.0" />
     <PackageReference Include="itext.bouncy-castle-adapter" Version="9.7.0" />
     <!-- pdfSweep 5.x ships only a net461 assembly; it runs on .NET 8 (verified by the smoke test). -->

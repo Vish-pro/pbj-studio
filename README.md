@@ -20,7 +20,7 @@ Black-and-white interface. All code and icons are original.
 
 ## Install
 
-1. Download `PBJStudio-Setup-1.1.0.exe` from the **Releases** page of this repository.
+1. Download `PBJStudio-Setup-1.1.1.exe` from the **Releases** page of this repository.
 2. Your browser may warn that the file "isn't commonly downloaded". This is normal for new free software
    without a paid code-signing certificate. In **Edge**: open Downloads (Ctrl+J), click the **...** next to the
    file, choose **Keep**, then **Show more** > **Keep anyway**. In **Chrome**: click the warning, then **Keep**.
@@ -33,6 +33,7 @@ To remove it, use **Settings > Apps > Installed apps > PB&J Studio > Uninstall**
 ## Open a PDF
 
 Use **File > Open**, drag a PDF onto the window, or pick one from the recent files list.
+If PB&J Studio is already running, opening another PDF from Explorer adds it as a new tab in the same window.
 The program works on a private copy. Your original file is not changed until you **Save**
 (Ctrl+S) or **Save As** (Ctrl+Shift+S). Every change can be undone (Ctrl+Z) and redone (Ctrl+Y).
 
@@ -57,6 +58,9 @@ The program works on a private copy. Your original file is not changed until you
 2. Pick a detection mode, or click **place by hand**. The places are drawn on the pages.
 3. Plug in your token, choose your certificate and click **Sign**.
 4. Enter the token PIN when asked. The signed file opens in a new tab.
+
+The visible signature looks like Acrobat's: your name large on the left, "Digitally signed by ..." and the date on the right,
+plus Reason and Location lines when you fill them in. It uses the Myriad Pro font when Adobe Acrobat is installed on the PC (read from the PC, never shipped with this app), and otherwise the bundled Source Sans 3 (Adobe's open-source, Myriad-style font), so it looks right on every PC.
 
 ## Preferences (Ctrl+K)
 
@@ -198,9 +202,12 @@ Build the installer with [Inno Setup 6](https://jrsoftware.org/isinfo.php):
 ISCC.exe packaging/setup.iss
 ```
 
-The installer is written to `dist/PBJStudio-Setup-1.1.0.exe`. Upload it to a GitHub Release; do not
+The installer is written to `dist/PBJStudio-Setup-1.1.1.exe`. Upload it to a GitHub Release; do not
 commit it. To change the version, edit `Version` in `KcsPdfSigner.App.csproj` and `AppVersion` in `setup.iss`.
 
 ## Credits
+
+Signature font fallback: Source Sans 3 by Adobe, SIL Open Font License 1.1 (see `docs/licenses/SourceSans3-OFL.txt`).
+
 
 Built by truevith.space and vistaar.space. Source code is released under the [MIT licence](LICENSE); the installer carries its own freeware licence.

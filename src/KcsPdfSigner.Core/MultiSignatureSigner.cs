@@ -208,19 +208,26 @@ public sealed class MultiSignatureSigner
 
             if (options.VisibleAppearance)
             {
-                var appearanceText = new SignedAppearanceText()
-                    .SetSignedBy(certificate.CommonName)
-                    .SetSignDate(DateTime.Now)
-                    .SetReasonLine(string.IsNullOrWhiteSpace(options.Reason)
-                        ? string.Empty
-                        : "Reason: " + options.Reason.Trim())
-                    .SetLocationLine(string.IsNullOrWhiteSpace(options.Location)
-                        ? string.Empty
-                        : "Location: " + options.Location.Trim());
+                // Same layout as Adobe Acrobat's default look: the signer's name large on the left,
+                // "Digitally signed by ... / Date: ..." (plus Reason and Location when given) on the right.
+                var description = new System.Text.StringBuilder()
+                    .Append("Digitally signed by ").Append(certificate.CommonName).Append('\n')
+                    .Append("Date: ").Append(FormatSignDate(DateTimeOffset.Now));
+                if (!string.IsNullOrWhiteSpace(options.Reason))
+                    description.Append("\nReason: ").Append(options.Reason.Trim());
+                if (!string.IsNullOrWhiteSpace(options.Location))
+                    description.Append("\nLocation: ").Append(options.Location.Trim());
 
-                properties.SetSignatureAppearance(
-                    new SignatureFieldAppearance(SignerProperties.IGNORED_ID)
-                        .SetContent(appearanceText));
+                var appearance = new SignatureFieldAppearance(SignerProperties.IGNORED_ID)
+                    .SetContent(certificate.CommonName, description.ToString());
+
+                // Acrobat draws its signatures in Myriad Pro. When Myriad Pro is installed on this PC
+                // (Adobe Acrobat puts it there) a subset of it is embedded for an exact match; otherwise
+                // the bundled Source Sans 3 (Adobe's open-source Myriad-style face) is used. The Myriad
+                // file is read from the PC and never shipped with this app.
+                appearance.SetFont(LoadAppearanceFont());
+
+                properties.SetSignatureAppearance(appearance);
             }
 
             signer.SetSignerProperties(properties);
@@ -236,6 +243,88 @@ public sealed class MultiSignatureSigner
         }
 
         return output.ToArray();
+    }
+
+    private static string? _fontPath;
+    private static bool _fontSearched;
+
+    private static iText.Kernel.Font.PdfFont LoadAppearanceFont()
+    {
+        if (!_fontSearched)
+        {
+            _fontSearched = true;
+            _fontPath = FindMyriadPro();
+        }
+
+        if (_fontPath is not null)
+        {
+            try
+            {
+                return iText.Kernel.Font.PdfFontFactory.CreateFont(
+                    _fontPath, iText.IO.Font.PdfEncodings.IDENTITY_H,
+                    iText.Kernel.Font.PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
+            }
+            catch
+            {
+                _fontPath = null; // unreadable: use the bundled font
+            }
+        }
+
+        var assembly = typeof(MultiSignatureSigner).Assembly;
+        var resource = assembly.GetManifestResourceNames()
+            .First(n => n.EndsWith("SourceSans3-Regular.otf", StringComparison.OrdinalIgnoreCase));
+        using var stream = assembly.GetManifestResourceStream(resource)!;
+        using var memory = new MemoryStream();
+        stream.CopyTo(memory);
+
+        return iText.Kernel.Font.PdfFontFactory.CreateFont(
+            memory.ToArray(), iText.IO.Font.PdfEncodings.IDENTITY_H,
+            iText.Kernel.Font.PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED);
+    }
+
+    private static string? FindMyriadPro()
+    {
+        // PBJ_NO_MYRIAD=1 forces the bundled font (used to test the fallback).
+        if (Environment.GetEnvironmentVariable("PBJ_NO_MYRIAD") == "1") return null;
+
+        try
+        {
+            var fonts = Environment.GetFolderPath(Environment.SpecialFolder.Fonts);
+            var local = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "Windows", "Fonts");
+            foreach (var folder in new[] { fonts, local })
+            {
+                foreach (var name in new[] { "MyriadPro-Regular.otf", "MyriadPro-Regular.ttf" })
+                {
+                    var candidate = System.IO.Path.Combine(folder, name);
+                    if (File.Exists(candidate)) return candidate;
+                }
+            }
+
+            foreach (var root in new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86 })
+            {
+                var adobe = System.IO.Path.Combine(Environment.GetFolderPath(root), "Adobe");
+                if (!Directory.Exists(adobe)) continue;
+
+                var found = Directory.EnumerateFiles(adobe, "MyriadPro-Regular.otf", SearchOption.AllDirectories).FirstOrDefault();
+                if (found is not null) return found;
+            }
+        }
+        catch
+        {
+            // No access or no Adobe folder: Helvetica is used.
+        }
+
+        return null;
+    }
+
+    /// <summary>Acrobat's date style: 2026.11.12 12:13:01 +05'30'.</summary>
+    internal static string FormatSignDate(DateTimeOffset moment)
+    {
+        var offset = moment.Offset;
+        var sign = offset < TimeSpan.Zero ? "-" : "+";
+        offset = offset.Duration();
+        return $"{moment:yyyy.MM.dd HH:mm:ss} {sign}{offset.Hours:00}'{offset.Minutes:00}'";
     }
 
     private static void WriteAtomically(string outputPath, byte[] document)

@@ -3,6 +3,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Threading;
 using KcsPdfSigner.App.Dialogs;
+using KcsPdfSigner.App.Services;
 
 namespace KcsPdfSigner.App;
 
@@ -18,6 +19,20 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // One window per user: hand any PDFs to the copy that is already running and quit.
+        if (!SingleInstance.TryBecomeFirst())
+        {
+            var wanted = e.Args
+                .Where(a => a.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) && File.Exists(a))
+                .Select(Path.GetFullPath)
+                .ToList();
+            if (SingleInstance.SendToRunning(wanted))
+            {
+                Shutdown();
+                return;
+            }
+        }
+
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
@@ -27,10 +42,34 @@ public partial class App : Application
         var window = new MainWindow();
         MainWindow = window;
 
+        var mainShown = false;
+        var pending = new List<string>();
+
+        void OpenAndFocus(IEnumerable<string> paths)
+        {
+            foreach (var path in paths)
+            {
+                if (File.Exists(path) && path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) window.OpenFile(path);
+            }
+
+            if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+            window.Activate();
+            window.Topmost = true; // brings it to the front even when another app has focus
+            window.Topmost = false;
+            window.Focus();
+        }
+
+        SingleInstance.Listen(paths => Dispatcher.BeginInvoke(() =>
+        {
+            if (mainShown) OpenAndFocus(paths);
+            else pending.AddRange(paths); // still on the splash: open them as soon as the window shows
+        }));
+
         void ShowMainWindow()
         {
             window.Show();
             window.Activate();
+            mainShown = true;
 
             if (Services.AppSettings.Current.ReopenLastSession) window.RestoreLastSession();
 
@@ -41,6 +80,12 @@ public partial class App : Application
                 {
                     window.OpenFile(argument);
                 }
+            }
+
+            if (pending.Count > 0)
+            {
+                OpenAndFocus(pending);
+                pending.Clear();
             }
         }
 
