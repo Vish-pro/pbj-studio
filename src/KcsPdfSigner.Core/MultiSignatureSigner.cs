@@ -167,6 +167,10 @@ public sealed class MultiSignatureSigner
                     .SetWidgetRectangle(placement.ToRectangle())
                     .CreateSignature();
 
+                // Without the Print flag, printers and "Print to PDF" leave the signature box out
+                // (Acrobat's own signature widgets carry Print + Locked).
+                MarkPrintable(field);
+
                 form.AddField(field, document.GetPage(placement.PageNumber));
                 results[i].FieldName = name;
             }
@@ -191,6 +195,7 @@ public sealed class MultiSignatureSigner
         using (var reader = new PdfReader(input))
         {
             var signer = new PdfSigner(reader, output, new StampingProperties().UseAppendMode());
+            EnsurePrintable(signer.GetDocument(), fieldName);
 
             var properties = new SignerProperties()
                 .SetFieldName(fieldName)
@@ -316,6 +321,30 @@ public sealed class MultiSignatureSigner
         }
 
         return null;
+    }
+
+    /// <summary>Sets the Print flag on every widget of a signature field.</summary>
+    private static void MarkPrintable(iText.Forms.Fields.PdfFormField field)
+    {
+        foreach (var annotation in field.GetWidgets())
+        {
+            annotation.SetFlag(iText.Kernel.Pdf.Annot.PdfAnnotation.PRINT);
+        }
+    }
+
+    private static void EnsurePrintable(iText.Kernel.Pdf.PdfDocument document, string fieldName)
+    {
+        var form = iText.Forms.Fields.PdfFormCreator.GetAcroForm(document, false);
+        var field = form?.GetField(fieldName);
+        if (field is null) return;
+
+        foreach (var widget in field.GetWidgets())
+        {
+            if ((widget.GetFlags() & iText.Kernel.Pdf.Annot.PdfAnnotation.PRINT) == 0)
+            {
+                widget.SetFlag(iText.Kernel.Pdf.Annot.PdfAnnotation.PRINT);
+            }
+        }
     }
 
     /// <summary>Acrobat's date style: 2026.11.12 12:13:01 +05'30'.</summary>

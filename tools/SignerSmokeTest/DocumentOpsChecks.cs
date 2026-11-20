@@ -408,6 +408,28 @@ internal static class DocumentOpsChecks
             Check(!File.Exists(F("badpage.pdf")), "build: a failed build must not leave a file behind");
         });
 
+                Step("[19] Signature boxes are printable", () =>
+        {
+            // A widget without the Print flag is dropped by printers and "Print to PDF", so a signed
+            // document would print without its signatures (a bank would not accept it).
+            using var pdf = new PdfDocument(new PdfReader(signedPdf));
+            var widgets = 0;
+            var notPrintable = 0;
+            for (var number = 1; number <= pdf.GetNumberOfPages(); number++)
+            {
+                foreach (var annotation in pdf.GetPage(number).GetAnnotations())
+                {
+                    if (annotation.GetSubtype() is null || annotation.GetSubtype().GetValue() != "Widget") continue;
+                    widgets++;
+                    if ((annotation.GetFlags() & iText.Kernel.Pdf.Annot.PdfAnnotation.PRINT) == 0) notPrintable++;
+                }
+            }
+
+            Console.WriteLine($"    signature widgets={widgets}, without Print flag={notPrintable}");
+            Check(widgets > 0, "print: no signature widgets found in the signed file");
+            Check(notPrintable == 0, "print: some signature boxes lack the Print flag");
+        });
+
         Step("[16] Bad input", () =>
         {
             Check(Throws(() => PdfInfoReader.Read(F("missing.pdf"))), "missing file did not throw");
