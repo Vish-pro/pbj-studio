@@ -20,7 +20,7 @@ Black-and-white interface. All code and icons are original.
 
 ## Install
 
-1. Download `PBJStudio-Setup-1.1.1.exe` from the **Releases** page of this repository.
+1. Download `PBJStudio-Setup-1.2.0.exe` from the **Releases** page of this repository.
 2. Your browser may warn that the file "isn't commonly downloaded". This is normal for new free software
    without a paid code-signing certificate. In **Edge**: open Downloads (Ctrl+J), click the **...** next to the
    file, choose **Keep**, then **Show more** > **Keep anyway**. In **Chrome**: click the warning, then **Keep**.
@@ -44,13 +44,34 @@ The program works on a private copy. Your original file is not changed until you
 | **Multi-Sign (DSC)** | Sign one PDF at many places in one run with your USB token. The app finds the places for you (signature lines, text such as "Authorised Signatory", empty boxes), or you click the places by hand. |
 | **Comment** | Highlight, underline, strike out, notes, text boxes, shapes, freehand and stamps. |
 | **Fill Forms** | Fill form fields and flatten them. |
-| **Organize Pages** | Rotate, delete, extract, reorder, insert and split pages. |
+| **Organize Pages** | Rotate, delete, extract, reorder (drag, or Up, Down, To top, To bottom), insert and split pages of the open PDF. |
+| **Multiple PDFs** | Pick specific pages from several PDFs and save them as one new PDF, in the order you want. See the how-to below. |
 | **Combine Files** | Merge PDFs, or turn images into a PDF. |
 | **Edit** | Add text, images, watermarks, headers, footers and page numbers. |
 | **Redact** | Permanently remove content (the text is removed, not just covered). |
 | **Protect** | Add or remove a password (AES-256) and set permissions. |
 | **Export** | Pages to images, text, or a smaller optimised PDF. |
 | **Properties, Search, Read Aloud** | Document details, find text, and have a page read out. |
+
+## Pick pages from several PDFs (Multiple PDFs)
+
+Use this when you need one PDF made from chosen pages of several files, for example pages 3-5 of one report,
+page 9 of another, and a covering letter.
+
+1. Open the **Multiple PDFs** tool in the tools pane (or Tools > Multiple PDFs).
+2. **Add PDFs...** (or drop PDF files on the file list, or **Add open document**). A password-protected file asks for its
+   owner password, the one that also lets you change the file.
+3. Click a file in the list. Its pages appear as thumbnails. Click the pages you want (Ctrl or Shift for several) and press
+   **Add selected**, or double-click a page to add just that one. You can also type pages, such as `3-5, 9`, and press
+   **Add range**; they are added in the order you type them (`5-3` counts down).
+4. Repeat for the other files. The pages you add collect under **3. Your new PDF**, in the order you added them. Each
+   thumbnail shows its place in the new file and the file name and original page number under it.
+5. Arrange them: drag pages to a new place, or select pages and use the arrows, **To top**, **To bottom**; turn pages
+   with the rotate buttons; take pages out with **Remove** (or the Delete key).
+6. Press **Save new PDF...**. The new file opens in a new tab unless you untick the box.
+
+Your original PDFs are never changed. Large PDFs stay quick because thumbnails are drawn only for the pages you are
+looking at.
 
 ## Sign a PDF at many places
 
@@ -140,6 +161,9 @@ prints PASS or FAIL and the exit code is 0 only when all pass.
 dotnet run --project tools/SignerSmokeTest/SignerSmokeTest.csproj
 ```
 
+Set the environment variable `PBJ_ALLOW_MULTIPLE=1` to run several copies of the app side by side (normally a second
+start hands its PDFs to the running copy). The UI check sets it for itself, so it works even while the app is open.
+
 Then run the UI check (it opens the real windows briefly, changes no screen settings, and restores your
 `settings.json` afterwards; run the engine smoke test first because it creates the test PDFs):
 
@@ -164,6 +188,9 @@ and `%APPDATA%\KcsPdfStudio\error.log` gains no new entries.
   The features they switch are in `MainWindow.Features.cs` (tools, links, form highlights, snapshot,
   Send to WhatsApp, session restore, touch and scaling). Text regions come from
   `Core/Documents/PdfTextRegions.cs`. Every setting must change real behaviour; do not add dead checkboxes.
+- **Multiple PDFs** lives in `Tools/PageBasketPanel.xaml(.cs)`. It builds the output with the Core method
+  `PdfPageOps.BuildFromSelection` (a list of `PageSelection(file, page, rotation, password)`), so no new PDF code is in the
+  UI. Thumbnails render lazily on one background thread (`RenderLoop`), reading each source file once.
 - **Splash**: the start-up animation is a zip of pre-rendered JPEG frames (`Assets/splash.zip`).
   `brand/generator/splashgen-v6/splash_v6.py` regenerates it (Python with Pillow, numpy, OpenCV and
   imageio-ffmpeg): `python -I splash_v6.py`.
@@ -202,7 +229,7 @@ Build the installer with [Inno Setup 6](https://jrsoftware.org/isinfo.php):
 ISCC.exe packaging/setup.iss
 ```
 
-The installer is written to `dist/PBJStudio-Setup-1.1.1.exe`. Upload it to a GitHub Release; do not
+The installer is written to `dist/PBJStudio-Setup-1.2.0.exe`. Upload it to a GitHub Release; do not
 commit it. To change the version, edit `Version` in `KcsPdfSigner.App.csproj` and `AppVersion` in `setup.iss`.
 
 ## Credits

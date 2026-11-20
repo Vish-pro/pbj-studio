@@ -575,7 +575,7 @@ public sealed class PdfViewer : UserControl
         public double FrameWidth { get; set; }
         public double FrameHeight { get; set; }
 
-        public int RenderedDpi { get; set; }
+        public int RenderedPixelWidth { get; set; }
         public bool Failed { get; set; }
     }
 
@@ -619,7 +619,8 @@ public sealed class PdfViewer : UserControl
                 BorderThickness = new Thickness(1),
                 Child = surface,
                 LayoutTransform = RotationTransform(),
-                SnapsToDevicePixels = true
+                SnapsToDevicePixels = true,
+                UseLayoutRounding = true
             };
 
             var slot = new PageSlot
@@ -652,14 +653,16 @@ public sealed class PdfViewer : UserControl
     private void Relayout()
     {
         var scale = _zoom * PointsToDips;
+        var deviceScale = Math.Max(0.5, VisualTreeHelper.GetDpi(this).DpiScaleX);
         var top = OuterMargin;
         var widest = 0.0;
 
         foreach (var slot in _slots)
         {
             var (width, height) = PreviewGeometry.RotatedSize(slot.Info);
-            slot.Width = Math.Max(1, Math.Round(width * scale));
-            slot.Height = Math.Max(1, Math.Round(height * scale));
+            // Whole device pixels, so the page bitmap lands exactly on the screen grid (sharp text).
+            slot.Width = Math.Max(1 / deviceScale, Math.Round(width * scale * deviceScale) / deviceScale);
+            slot.Height = Math.Max(1 / deviceScale, Math.Round(height * scale * deviceScale) / deviceScale);
             slot.Surface.Width = slot.Width;
             slot.Surface.Height = slot.Height;
 
@@ -780,7 +783,7 @@ public sealed class PdfViewer : UserControl
                 var job = NextRenderJob();
                 if (job is null) break;
 
-                var (slot, dpi) = job.Value;
+                var (slot, pixelWidth, pixelHeight, screenScale) = job.Value;
                 var generation = _generation;
                 var bytes = _bytes;
                 var password = _password;
@@ -789,7 +792,7 @@ public sealed class PdfViewer : UserControl
                 BitmapSource? bitmap = null;
                 try
                 {
-                    bitmap = await Task.Run(() => PageRenderer.Render(bytes!, pageNumber, password, dpi));
+                    bitmap = await Task.Run(() => PageRenderer.RenderPixels(bytes!, pageNumber, password, pixelWidth, pixelHeight, screenScale));
                 }
                 catch (Exception ex)
                 {
@@ -804,7 +807,7 @@ public sealed class PdfViewer : UserControl
                 if (generation != _generation || bitmap is null) continue;
 
                 slot.Image.Source = bitmap;
-                slot.RenderedDpi = dpi;
+                slot.RenderedPixelWidth = pixelWidth;
                 ReleaseFarBitmaps();
             }
         }
@@ -814,7 +817,7 @@ public sealed class PdfViewer : UserControl
         }
     }
 
-    private (PageSlot Slot, int Dpi)? NextRenderJob()
+    private (PageSlot Slot, int PixelWidth, int PixelHeight, double ScreenScale)? NextRenderJob()
     {
         if (_slots.Count == 0 || _bytes is null) return null;
 
@@ -824,12 +827,12 @@ public sealed class PdfViewer : UserControl
         var from = viewportTop - viewportHeight * 0.5;
         var to = viewportTop + viewportHeight * 1.5;
 
-        var deviceScale = VisualTreeHelper.GetDpi(this).DpiScaleX;
-        var wantedDpi = 96.0 * _zoom * deviceScale;
+        var deviceScale = Math.Max(0.5, VisualTreeHelper.GetDpi(this).DpiScaleX);
 
         PageSlot? best = null;
         var bestDistance = double.MaxValue;
-        var bestDpi = 0;
+        var bestWidth = 0;
+        var bestHeight = 0;
 
         var first = SlotAtHostY(from);
         var start = first is null ? 0 : first.Info.PageNumber - 1;
@@ -840,10 +843,17 @@ public sealed class PdfViewer : UserControl
             if (slot.Top > to) break;
             if (slot.Top + slot.FrameHeight < from || slot.Failed) continue;
 
-            var (width, height) = PreviewGeometry.RotatedSize(slot.Info);
-            var dpi = PageRenderer.CapDpi(width, height, wantedDpi);
+            // The exact number of screen pixels this page covers; keep it under the memory cap.
+            var pixelWidth = (double)Math.Max(8, (int)Math.Round(slot.Width * deviceScale));
+            var pixelHeight = (double)Math.Max(8, (int)Math.Round(slot.Height * deviceScale));
+            if (pixelWidth * pixelHeight > PageRenderer.MaxPixels)
+            {
+                var shrink = Math.Sqrt(PageRenderer.MaxPixels / (pixelWidth * pixelHeight));
+                pixelWidth = Math.Floor(pixelWidth * shrink);
+                pixelHeight = Math.Floor(pixelHeight * shrink);
+            }
 
-            var needs = slot.RenderedDpi == 0 || Math.Abs(slot.RenderedDpi - dpi) / (double)dpi > 0.2;
+            var needs = slot.RenderedPixelWidth != (int)pixelWidth;
             if (!needs) continue;
 
             var distance = Math.Abs(slot.Top + slot.FrameHeight / 2 - centre);
@@ -851,11 +861,12 @@ public sealed class PdfViewer : UserControl
             {
                 best = slot;
                 bestDistance = distance;
-                bestDpi = dpi;
+                bestWidth = (int)pixelWidth;
+                bestHeight = (int)pixelHeight;
             }
         }
 
-        return best is null ? null : (best, bestDpi);
+        return best is null ? null : (best, bestWidth, bestHeight, deviceScale);
     }
 
     /// <summary>Keeps memory bounded: bitmaps far outside the viewport are dropped.</summary>
@@ -867,10 +878,10 @@ public sealed class PdfViewer : UserControl
 
         foreach (var slot in _slots)
         {
-            if (slot.RenderedDpi == 0) continue;
+            if (slot.RenderedPixelWidth == 0) continue;
             if (slot.Top + slot.FrameHeight >= keepFrom && slot.Top <= keepTo) continue;
             slot.Image.Source = null;
-            slot.RenderedDpi = 0;
+            slot.RenderedPixelWidth = 0;
         }
     }
 

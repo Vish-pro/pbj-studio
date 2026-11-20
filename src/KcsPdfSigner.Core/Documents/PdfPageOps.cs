@@ -7,6 +7,12 @@ using Path = System.IO.Path;
 
 namespace KcsPdfSigner.Core.Documents;
 
+/// <summary>
+/// One page picked for a new document: which file, which page (1-based), and how many degrees
+/// (a multiple of 90, may be negative) to turn it on top of its own rotation.
+/// </summary>
+public sealed record PageSelection(string File, int PageNumber, int Rotation = 0, string? Password = null);
+
 /// <summary>Page organisation: rotate, delete, extract, reorder, insert, merge, split, images to PDF.</summary>
 /// <remarks>Page numbers are 1-based throughout.</remarks>
 public static class PdfPageOps
@@ -54,6 +60,63 @@ public static class PdfPageOps
         foreach (var number in targets) PdfIo.RequirePage(source, number);
 
         WriteNew(output, target => source.CopyPagesTo(targets, target, new PdfPageFormCopier()));
+    }
+
+    /// <summary>
+    /// Builds one new PDF from pages of several files, in exactly the order listed (the same page
+    /// may appear more than once). Each selection can carry an extra rotation and the password of
+    /// its source file. Every source is opened once, however many of its pages are used.
+    /// </summary>
+    public static void BuildFromSelection(IReadOnlyList<PageSelection> items, string output)
+    {
+        if (items.Count == 0) throw new ArgumentException("No pages chosen.", nameof(items));
+        foreach (var item in items)
+        {
+            if (item.Rotation % 90 != 0)
+                throw new ArgumentException("Rotation must be a multiple of 90 degrees.", nameof(items));
+            PdfIo.RequireDistinct(item.File, output);
+        }
+
+        var sources = new Dictionary<string, PdfDocument>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var group in items.GroupBy(i => Path.GetFullPath(i.File), StringComparer.OrdinalIgnoreCase))
+            {
+                var password = group.Select(i => i.Password).FirstOrDefault(p => !string.IsNullOrEmpty(p));
+                var source = PdfIo.OpenRead(group.First().File, password);
+                sources[group.Key] = source;
+                foreach (var item in group) PdfIo.RequirePage(source, item.PageNumber);
+            }
+
+            WriteNew(output, target =>
+            {
+                var copier = new PdfPageFormCopier();
+                foreach (var item in items)
+                {
+                    var source = sources[Path.GetFullPath(item.File)];
+                    source.CopyPagesTo(item.PageNumber, item.PageNumber, target, copier);
+
+                    if (item.Rotation != 0)
+                    {
+                        var added = target.GetPage(target.GetNumberOfPages());
+                        added.SetRotation(PdfIo.NormalizeRotation(added.GetRotation() + item.Rotation));
+                    }
+                }
+            });
+        }
+        catch (iText.Kernel.Exceptions.BadPasswordException ex)
+        {
+            throw new InvalidOperationException(
+                "A protected file does not allow pages to be taken from it with the password given. " +
+                "Open it with its owner password (the password that also lets you change the file).", ex);
+        }
+        finally
+        {
+            foreach (var source in sources.Values)
+            {
+                try { source.Close(); } catch { /* read-only: nothing to lose */ }
+            }
+        }
     }
 
     /// <summary>newOrder lists every page exactly once, e.g. [3, 1, 2] puts page 3 first.</summary>

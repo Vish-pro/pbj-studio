@@ -31,6 +31,29 @@ public static class PageRenderer
         }
     }
 
+    /// <summary>
+    /// Renders a page at an exact pixel size, so the bitmap maps one-to-one onto screen pixels
+    /// (no resampling, which is what keeps text crisp). <paramref name="screenScale"/> is the
+    /// Windows display scale (1.0 at 100%); it only sets the bitmap's declared resolution.
+    /// </summary>
+    public static BitmapSource RenderPixels(
+        byte[] pdf, int pageNumber, string? password, int pixelWidth, int pixelHeight, double screenScale)
+    {
+        pixelWidth = Math.Clamp(pixelWidth, 8, 16000);
+        pixelHeight = Math.Clamp(pixelHeight, 8, 16000);
+
+        lock (Gate)
+        {
+            using var bitmap = Conversion.ToImage(
+                pdf, pageNumber - 1, password,
+                new PDFtoImage.RenderOptions(
+                    Dpi: 96, Width: pixelWidth, Height: pixelHeight, WithAnnotations: true, WithFormFill: true,
+                    WithAspectRatio: false));
+
+            return ToBitmapSource(bitmap, 96.0 * screenScale);
+        }
+    }
+
     /// <summary>Highest DPI that keeps a page of this size (in points) under <see cref="MaxPixels"/>.</summary>
     public static int CapDpi(double widthPoints, double heightPoints, double wantedDpi)
     {
@@ -40,7 +63,7 @@ public static class PageRenderer
         return (int)Math.Max(8, Math.Round(Math.Min(wantedDpi, cap)));
     }
 
-    private static BitmapSource ToBitmapSource(SKBitmap bitmap)
+    private static BitmapSource ToBitmapSource(SKBitmap bitmap, double dpi = 96)
     {
         SKBitmap source = bitmap;
         SKBitmap? converted = null;
@@ -55,7 +78,7 @@ public static class PageRenderer
         {
             var format = source.AlphaType == SKAlphaType.Unpremul ? PixelFormats.Bgra32 : PixelFormats.Pbgra32;
             var image = BitmapSource.Create(
-                source.Width, source.Height, 96, 96, format, null,
+                source.Width, source.Height, dpi, dpi, format, null,
                 source.GetPixels(), source.ByteCount, source.RowBytes);
             image.Freeze();
             return image;

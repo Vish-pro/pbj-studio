@@ -1,0 +1,166 @@
+<UserControl x:Class="KcsPdfSigner.App.Tools.PageBasketPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="12,4,12,12">
+
+            <!-- 1. Source files -->
+            <TextBlock Text="1. PDFs to take pages from" Style="{StaticResource SectionHeading}" />
+            <WrapPanel>
+                <Button Margin="0,0,6,6" Click="OnAddFiles">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Plus}" Margin="0,0,6,0" />
+                        <TextBlock Text="Add PDFs..." VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="AddOpenButton" Margin="0,0,6,6" Content="Add open document" Click="OnAddOpen"
+                        ToolTip="Add the document in the active tab, with its unsaved changes" />
+                <Button x:Name="RemoveSourceButton" Margin="0,0,6,6" Content="Remove file" Click="OnRemoveSource"
+                        ToolTip="Remove the selected file and its pages from the new PDF" />
+            </WrapPanel>
+            <ListBox x:Name="SourceList" Height="92" AllowDrop="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     SelectionChanged="OnSourceChanged" Drop="OnSourcesDropped" DragOver="OnSourcesDragOver">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding PageText}" Margin="8,0,0,0" Opacity="0.7"
+                                       FontSize="11" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
+                        </DockPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- 2. Pick pages -->
+            <TextBlock x:Name="PickHeading" Text="2. Pick pages" Style="{StaticResource SectionHeading}" Margin="0,14,0,4" />
+            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6"
+                       Text="Click pages (Ctrl or Shift for several), then Add selected. Double-click adds one page." />
+            <ListBox x:Name="PageList" Height="236" SelectionMode="Extended"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     SelectionChanged="OnPageSelectionChanged" ScrollViewer.ScrollChanged="OnListScrolled"
+                     MouseDoubleClick="OnPageDoubleClick">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <Setter Property="Padding" Value="4" />
+                        <Setter Property="Margin" Value="2" />
+                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Width="{Binding BoxSize}">
+                            <Grid Width="{Binding BoxSize}" Height="{Binding BoxSize}">
+                                <Border BorderBrush="{StaticResource Brush.Line}" BorderThickness="1"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Width="{Binding FrameWidth}" Height="{Binding FrameHeight}"
+                                        Background="{StaticResource Brush.Wash}">
+                                    <Image Source="{Binding Image}" Stretch="Uniform" />
+                                </Border>
+                            </Grid>
+                            <TextBlock Text="{Binding PageNumber}" HorizontalAlignment="Center" Margin="0,3,0,0" FontSize="11" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <WrapPanel Margin="0,8,0,0">
+                <Button x:Name="AddSelectedButton" Margin="0,0,6,6" Content="Add selected" Click="OnAddSelected" />
+                <Button x:Name="AddAllButton" Margin="0,0,6,6" Content="Add all pages" Click="OnAddAll" />
+                <Button x:Name="SelectAllButton" Margin="0,0,6,6" Content="Select all" Click="OnSelectAllPages" />
+            </WrapPanel>
+            <DockPanel Margin="0,0,0,2">
+                <TextBlock DockPanel.Dock="Left" Text="Or type pages" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <Button x:Name="AddRangeButton" DockPanel.Dock="Right" Content="Add range" Margin="6,0,0,0" Click="OnAddRange" />
+                <TextBox x:Name="RangeBox" ToolTip="For example 3-5, 9, 12. Pages are added in the order typed."
+                         KeyDown="OnRangeKeyDown" />
+            </DockPanel>
+            <TextBlock Style="{StaticResource Hint}" Text="Example: 3-5, 9, 12. They are added in the order you type them." />
+
+            <!-- 3. The new PDF -->
+            <TextBlock x:Name="BasketHeading" Text="3. Your new PDF" Style="{StaticResource SectionHeading}" Margin="0,14,0,4" />
+            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,6"
+                       Text="Drag pages to reorder, or use the buttons. Page order here is the page order of the new file." />
+            <WrapPanel>
+                <Button x:Name="TopButton" Margin="0,0,6,6" Content="To top" Click="OnToTop" />
+                <Button x:Name="UpButton" Margin="0,0,6,6" Click="OnMoveUp" ToolTip="Move selected pages one place earlier">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.PageUp}" />
+                </Button>
+                <Button x:Name="DownButton" Margin="0,0,6,6" Click="OnMoveDown" ToolTip="Move selected pages one place later">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.PageDown}" />
+                </Button>
+                <Button x:Name="BottomButton" Margin="0,0,6,6" Content="To bottom" Click="OnToBottom" />
+                <Button x:Name="RotateLeftButton" Margin="0,0,6,6" Click="OnRotateLeft" ToolTip="Rotate selected pages 90 degrees anticlockwise">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.RotateCcw}" />
+                </Button>
+                <Button x:Name="RotateRightButton" Margin="0,0,6,6" Click="OnRotateRight" ToolTip="Rotate selected pages 90 degrees clockwise">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.RotateCw}" />
+                </Button>
+                <Button x:Name="RemovePagesButton" Margin="0,0,6,6" Click="OnRemovePages" ToolTip="Take selected pages out of the new PDF (Del)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Trash}" Margin="0,0,6,0" />
+                        <TextBlock Text="Remove" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="ClearButton" Margin="0,0,6,6" Content="Clear" Click="OnClearBasket" />
+            </WrapPanel>
+
+            <ListBox x:Name="BasketList" Height="300" SelectionMode="Extended" AllowDrop="True"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     SelectionChanged="OnBasketSelectionChanged" ScrollViewer.ScrollChanged="OnListScrolled"
+                     PreviewMouseLeftButtonDown="OnBasketMouseDown" PreviewMouseLeftButtonUp="OnBasketMouseUp"
+                     PreviewMouseMove="OnBasketMouseMove" DragOver="OnBasketDragOver" Drop="OnBasketDrop"
+                     KeyDown="OnBasketKeyDown">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <Setter Property="Padding" Value="4" />
+                        <Setter Property="Margin" Value="2" />
+                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Width="{Binding BoxSize}" ToolTip="{Binding Tooltip}">
+                            <Grid Width="{Binding BoxSize}" Height="{Binding BoxSize}">
+                                <Border BorderBrush="{StaticResource Brush.Line}" BorderThickness="1"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Width="{Binding FrameWidth}" Height="{Binding FrameHeight}"
+                                        Background="{StaticResource Brush.Wash}">
+                                    <Image Source="{Binding Image}" Stretch="Uniform">
+                                        <Image.LayoutTransform>
+                                            <RotateTransform Angle="{Binding Rotation}" />
+                                        </Image.LayoutTransform>
+                                    </Image>
+                                </Border>
+                            </Grid>
+                            <TextBlock Text="{Binding Position}" HorizontalAlignment="Center" Margin="0,3,0,0"
+                                       FontSize="11" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding SourceLabel}" HorizontalAlignment="Center" FontSize="10" Opacity="0.7"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <TextBlock x:Name="SummaryText" Style="{StaticResource Hint}" Margin="0,6,0,0" />
+            <CheckBox x:Name="OpenResultBox" Content="Open the new PDF when it is saved" IsChecked="True" Margin="0,8,0,0" />
+            <Button x:Name="SaveButton" Style="{StaticResource PrimaryButton}" Margin="0,10,0,0" Padding="18,6"
+                    HorizontalAlignment="Left" Click="OnSave">
+                <StackPanel Orientation="Horizontal">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Combine}" Margin="0,0,8,0" />
+                    <TextBlock Text="Save new PDF..." VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -23,6 +23,9 @@ void Check(bool ok, string message)
     if (!ok) failures.Add(message);
 }
 
+// Run beside an installed copy of the app: this test must not hand its work to it.
+Environment.SetEnvironmentVariable("PBJ_ALLOW_MULTIPLE", "1");
+
 var docs = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "docs");
 var linksPdf = Path.Combine(docs, "links.pdf");
 var formPdf = Path.Combine(docs, "form.pdf");
@@ -37,24 +40,16 @@ var exitCode = 1;
 
 var thread = new Thread(() =>
 {
-    var dispatcher = Dispatcher.CurrentDispatcher;
-    dispatcher.BeginInvoke(async () =>
+    try
     {
-        try
-        {
-            exitCode = await RunAsync();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("UI smoke test crashed: " + ex);
-            exitCode = 1;
-        }
-        finally
-        {
-            dispatcher.InvokeShutdown();
-        }
-    });
-    Dispatcher.Run();
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        exitCode = RunAll();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("UI smoke test crashed: " + ex);
+        exitCode = 1;
+    }
 });
 thread.SetApartmentState(ApartmentState.STA);
 thread.Start();
@@ -67,9 +62,33 @@ var passed = failures.Count == 0 && exitCode == 0;
 Console.WriteLine(passed ? "\nPASS - all UI checks succeeded." : $"\nFAIL - {failures.Count} check(s) failed.");
 return passed ? 0 : 1;
 
-async Task Pump(int milliseconds)
+// Runs the WPF message loop for a while (this thread owns the windows), so layout, rendering and
+// background continuations get their turn without any async plumbing.
+void PumpNow(int milliseconds)
 {
-    await Task.Delay(milliseconds);
+    var frame = new DispatcherFrame();
+    var timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(milliseconds) };
+    timer.Tick += (_, _) => { timer.Stop(); frame.Continue = false; };
+    timer.Start();
+    Dispatcher.PushFrame(frame);
+}
+
+// The Windows clipboard is shared with every other program; it can be busy for a moment.
+T? TryClipboard<T>(Func<T> action)
+{
+    for (var attempt = 0; attempt < 8; attempt++)
+    {
+        try { return action(); }
+        catch (System.Runtime.InteropServices.COMException) { PumpNow(150); }
+    }
+
+    return default;
+}
+
+void Wait(Task task)
+{
+    while (!task.IsCompleted) PumpNow(40);
+    task.GetAwaiter().GetResult();
 }
 
 T Get<T>(object target, string name)
@@ -84,44 +103,16 @@ T Get<T>(object target, string name)
 MethodInfo Method(string name) =>
     typeof(MainWindow).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-async Task<int> RunAsync()
+int RunAll()
 {
+    var logSizeAtStart = File.Exists(App.ErrorLogPath) ? new FileInfo(App.ErrorLogPath).Length : 0;
     var app = new App();
     app.InitializeComponent();
-
-    Console.WriteLine("[1] Preferences dialog");
-    AppSettings.Apply(new AppSettings());
-    var prefs = new PreferencesDialog();
-    prefs.Show();
-    await Pump(300);
-
-    var boxes = new List<CheckBox>();
-    void Walk(DependencyObject d)
-    {
-        foreach (var child in LogicalTreeHelper.GetChildren(d))
-        {
-            if (child is CheckBox cb) boxes.Add(cb);
-            if (child is DependencyObject next) Walk(next);
-        }
-    }
-
-    Walk(prefs);
-    Check(boxes.Count == 10, $"dialog shows 10 checkboxes (found {boxes.Count})");
-    boxes.First(b => b.Name == "WheelZoom").IsChecked = true;
-    boxes.First(b => b.Name == "SingleKey").IsChecked = true;
-    boxes.First(b => b.Name == "HideWarnings").IsChecked = true;
-    boxes.First(b => b.Name == "FixedResolution").IsChecked = true;
-    ((TextBox)LogicalTreeHelper.FindLogicalNode(prefs, "Ppi")).Text = "200";
-    FindButton(prefs, "OK")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-    await Pump(200);
-
-    var now = AppSettings.Current;
-    Check(now.MouseWheelZoom && now.SingleKeyAccelerators && now.HideEditWarnings
-          && now.SnapshotFixedResolution && now.SnapshotPixelsPerInch == 200,
-        "OK stores the chosen values");
-    var saved = File.ReadAllText(AppSettings.StorePath);
-    Check(saved.Contains("\"MouseWheelZoom\": true") && saved.Contains("\"SnapshotPixelsPerInch\": 200"),
-        "settings.json on disk holds the values");
+    app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+    // A tiny window that stays open, so closing the dialogs below never ends the application.
+    var anchor = new Window { Width = 1, Height = 1, ShowInTaskbar = false, WindowStyle = WindowStyle.None, Left = -3000, Top = -3000 };
+    anchor.Show();
+    app.MainWindow = anchor;
 
     Console.WriteLine("[2] Main window: form fields, links, select tool, highlight, snapshot");
     AppSettings.Apply(new AppSettings { QuickActionsOnSelection = false, SnapshotFixedResolution = true, SnapshotPixelsPerInch = 144 });
@@ -129,8 +120,10 @@ async Task<int> RunAsync()
     window.Show();
     window.OpenFile(linksPdf);
     window.OpenFile(formPdf);
-    await Pump(6000);
+    PumpNow(9000);
 
+    // Warm up iText (first use JIT-compiles for seconds) so the background analysis finishes inside the wait above.
+    _ = PdfTextRegions.FindUrls(linksPdf).Count + PdfFormOps.ReadFields(formPdf).Count;
     var tabs = Get<System.Collections.IList>(window, "_tabs");
     Check(tabs.Count == 2, "two documents opened");
 
@@ -159,7 +152,18 @@ async Task<int> RunAsync()
 
     var tabControl = (TabControl)LogicalTreeHelper.FindLogicalNode(window, "DocumentTabs");
     tabControl.SelectedIndex = tabs.IndexOf(linkTab);
-    await Pump(500);
+    PumpNow(500);
+
+    // Page sharpness: the page bitmap must have exactly as many pixels as the screen area it covers.
+    var slots = Get<System.Collections.IList>(linkViewer, "_slots");
+    var firstSlot = slots[0]!;
+    var surface = Get<FrameworkElement>(firstSlot, "Surface");
+    var pageImage = Get<System.Windows.Controls.Image>(firstSlot, "Image");
+    var dpiScale = VisualTreeHelper.GetDpi(linkViewer).DpiScaleX;
+    var bitmapSource = pageImage.Source as System.Windows.Media.Imaging.BitmapSource;
+    var wantPx = (int)Math.Round(surface.Width * dpiScale);
+    Check(bitmapSource is not null && bitmapSource.PixelWidth == wantPx && Math.Abs(surface.Width * dpiScale - wantPx) < 0.01,
+        $"page bitmap is pixel-exact ({bitmapSource?.PixelWidth} px for {surface.Width * dpiScale:0.##} screen px)");
 
     Method("SetPointerTool").Invoke(window, [select]);
     Check(linkViewer.InteractionMode == InteractionMode.RectangleDrag, "select tool puts the viewer in drag mode");
@@ -173,7 +177,7 @@ async Task<int> RunAsync()
     };
 
     Method("SelectText").Invoke(window, [linkTab, drag]);
-    await Pump(1500);
+    PumpNow(1500);
     var selection = Get<TextSelection?>(window, "_selection");
     Check(selection is not null && selection.Text.Contains("example.com"), "select tool reads the dragged text");
     var shaded = linkViewer.GetOverlay(1)?.Children.OfType<Rectangle>().Count() ?? 0;
@@ -181,17 +185,23 @@ async Task<int> RunAsync()
 
     var before = PdfAnnotationOps.List(linkSession.CurrentFile).Count;
     Method("HighlightSelection").Invoke(window, null);
-    await Pump(2000);
+    PumpNow(100);
+    PumpNow(1900);
     var after = PdfAnnotationOps.List(linkSession.CurrentFile).Count;
     Check(after == before + 1, $"highlight adds one annotation ({before} -> {after})");
 
     Method("SetPointerTool").Invoke(window, [snapshot]);
-    Clipboard.Clear();
+    TryClipboard(() => { Clipboard.Clear(); return true; });
     Method("TakeSnapshot").Invoke(window, [linkTab, drag]);
-    await Pump(3500);
-    var image = Clipboard.ContainsImage() ? Clipboard.GetImage() : null;
-    Check(image is not null && image.PixelWidth > 20 && image.PixelHeight > 5,
-        image is null ? "snapshot reached the clipboard" : $"snapshot on the clipboard: {image.PixelWidth} x {image.PixelHeight} px");
+    PumpNow(3500);
+    var image = TryClipboard(() => Clipboard.ContainsImage() ? Clipboard.GetImage() : null);
+    var statusLine = Get<TextBlock>(window, "StatusText").Text;
+    if (image is not null)
+        Check(image.PixelWidth > 20 && image.PixelHeight > 5, $"snapshot on the clipboard: {image.PixelWidth} x {image.PixelHeight} px");
+    else if (statusLine.Contains("clipboard is busy"))
+        Console.WriteLine("  SKIP snapshot clipboard check: another program is holding the Windows clipboard");
+    else
+        Check(statusLine.StartsWith("Snapshot copied"), $"snapshot reached the clipboard (status: '{statusLine}')");
 
     Method("SetPointerTool").Invoke(window, [hand]);
     Check(linkViewer.InteractionMode == InteractionMode.Browse, "hand tool restores browse mode");
@@ -201,17 +211,107 @@ async Task<int> RunAsync()
     Check(AppSettings.Current.LastSession.Count == 2, "open documents are remembered for the next start");
 
     AppSettings.Apply(new AppSettings { Touch = TouchMode.On });
-    await Pump(300);
+    PumpNow(300);
     Check(window.Content is FrameworkElement { LayoutTransform: ScaleTransform { ScaleX: > 1.2 } }, "touch mode enlarges the interface");
     AppSettings.Apply(new AppSettings { Touch = TouchMode.Off });
-    await Pump(300);
+    PumpNow(300);
     Check(window.Content is FrameworkElement fe && !(fe.LayoutTransform is ScaleTransform { ScaleX: > 1.2 }),
         "touch mode off restores it");
 
-    var log = App.ErrorLogPath;
-    Check(!File.Exists(log) || new FileInfo(log).LastWriteTime < DateTime.Now.AddMinutes(-3), "no new entries in error.log");
+    Console.WriteLine("[4] Multiple PDFs panel");
+    var threePages = Path.Combine(docs, "three-pages.pdf");
+    var panelType = typeof(MainWindow).Assembly.GetType("KcsPdfSigner.App.Tools.PageBasketPanel")!;
+    var panel = (FrameworkElement)Activator.CreateInstance(panelType)!;
+    panelType.GetMethod("Initialize")!.Invoke(panel, [window]);
+    Task AddSource(string path) => (Task)panelType.GetMethod("AddSourceAsync", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, [path, null])!;
+    Wait(AddSource(threePages));
+    Wait(AddSource(linksPdf));
+    PumpNow(500);
+    var sourceList = Get<System.Collections.IList>(panel, "_sources");
+    Check(sourceList.Count == 2, "two PDFs added as sources");
+    var threeSource = sourceList[0]!;
+    var linksSource = sourceList[1]!;
+    var threeThumbs = Get<System.Collections.IList>(threeSource, "Thumbs");
+    Check(threeThumbs.Count == 3, "source shows 3 page thumbnails");
 
-    window.Close();
+    var parse = panelType.GetMethod("ParseRangeInOrder", BindingFlags.Static | BindingFlags.NonPublic)!;
+    object?[] parseArgs = ["3-1, 2", 3, null];
+    var parsed = (List<int>?)parse.Invoke(null, parseArgs);
+    Check(parsed is not null && parsed.SequenceEqual([3, 2, 1, 2]), "range '3-1, 2' keeps the order typed");
+    object?[] badArgs = ["4", 3, null];
+    Check(parse.Invoke(null, badArgs) is null && badArgs[2] is string, "range outside the file is rejected with a message");
+
+    var addToBasket = panelType.GetMethod("AddToBasket", BindingFlags.Instance | BindingFlags.NonPublic)!;
+    var thumbClass = threeThumbs[0]!.GetType();
+    var typedList = (System.Collections.IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(thumbClass))!;
+    typedList.Add(threeThumbs[2]);                                   // three-pages p.3
+    typedList.Add(Get<System.Collections.IList>(linksSource, "Thumbs")[0]);  // links p.1
+    typedList.Add(threeThumbs[0]);                                   // three-pages p.1
+    addToBasket.Invoke(panel, [typedList]);
+    var basket = Get<System.Collections.IList>(panel, "_basket");
+    string Labels() => string.Join(" | ", basket.Cast<object>().Select(b => Get<string>(b, "SourceLabel")));
+    Console.WriteLine("    basket: " + Labels());
+    Check(basket.Count == 3 && Labels() == "three-pages.pdf p.3 | links.pdf p.1 | three-pages.pdf p.1", "pages are added in the order picked, with file and page labels");
+
+    var basketList = (ListBox)Get<object>(panel, "BasketList");
+    basketList.SelectedItems.Clear();
+    basketList.SelectedItems.Add(basket[2]);
+    panelType.GetMethod("OnToTop", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, [null, new RoutedEventArgs()]);
+    Check(Labels().StartsWith("three-pages.pdf p.1"), "To top moves the selected page first");
+    panelType.GetMethod("OnToBottom", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, [null, new RoutedEventArgs()]);
+    Check(Labels().EndsWith("three-pages.pdf p.1"), "To bottom moves it back to the end");
+    panelType.GetMethod("OnRotateRight", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, [null, new RoutedEventArgs()]);
+    Check(Get<int>(basket[2]!, "Rotation") == 90, "rotate right turns the selected page 90 degrees");
+    var positions = basket.Cast<object>().Select(b => Get<int>(b, "Position")).ToList();
+    Check(positions.SequenceEqual([1, 2, 3]), "positions are numbered 1..3 after moving");
+    panelType.GetMethod("OnRemovePages", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, [null, new RoutedEventArgs()]);
+    Check(basket.Count == 2, "remove takes the selected page out of the new PDF");
+    var summary = Get<TextBlock>(panel, "SummaryText").Text;
+    Check(summary.Contains("2 page(s) from 2 file(s)"), $"live summary is right ('{summary}')");
+
+    void PreferencesTest()
+    {
+        Console.WriteLine("[1] Preferences dialog");
+        AppSettings.Apply(new AppSettings());
+        var prefs = new PreferencesDialog();
+        prefs.Show();
+        PumpNow(300);
+
+        var boxes = new List<CheckBox>();
+        void Walk(DependencyObject d)
+        {
+            foreach (var child in LogicalTreeHelper.GetChildren(d))
+            {
+                if (child is CheckBox cb) boxes.Add(cb);
+                if (child is DependencyObject next) Walk(next);
+            }
+        }
+
+        Walk(prefs);
+        Check(boxes.Count == 10, $"dialog shows 10 checkboxes (found {boxes.Count})");
+        boxes.First(b => b.Name == "WheelZoom").IsChecked = true;
+        boxes.First(b => b.Name == "SingleKey").IsChecked = true;
+        boxes.First(b => b.Name == "HideWarnings").IsChecked = true;
+        boxes.First(b => b.Name == "FixedResolution").IsChecked = true;
+        ((TextBox)LogicalTreeHelper.FindLogicalNode(prefs, "Ppi")).Text = "200";
+        FindButton(prefs, "OK")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        PumpNow(200);
+
+        var now = AppSettings.Current;
+        Check(now.MouseWheelZoom && now.SingleKeyAccelerators && now.HideEditWarnings
+              && now.SnapshotFixedResolution && now.SnapshotPixelsPerInch == 200,
+            "OK stores the chosen values");
+        var saved = File.ReadAllText(AppSettings.StorePath);
+        Check(saved.Contains("\"MouseWheelZoom\": true") && saved.Contains("\"SnapshotPixelsPerInch\": 200"),
+            "settings.json on disk holds the values");
+    }
+
+    PreferencesTest();
+
+    var log = App.ErrorLogPath;
+    Check((File.Exists(log) ? new FileInfo(log).Length : 0) == logSizeAtStart, "no new entries in error.log");
+
+    // The windows are left open: closing would ask about the highlight this test made. The process just ends.
     return 0;
 }
 

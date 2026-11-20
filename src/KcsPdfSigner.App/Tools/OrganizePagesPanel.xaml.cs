@@ -255,6 +255,8 @@ public partial class OrganizePagesPanel : UserControl, IToolPanel
         RotateRightButton.IsEnabled = hasSelection;
         MoveUpButton.IsEnabled = hasSelection;
         MoveDownButton.IsEnabled = hasSelection;
+        MoveTopButton.IsEnabled = hasSelection;
+        MoveBottomButton.IsEnabled = hasSelection;
         DeleteButton.IsEnabled = hasSelection;
         ExtractButton.IsEnabled = hasSelection;
 
@@ -418,6 +420,22 @@ public partial class OrganizePagesPanel : UserControl, IToolPanel
         var order = PageMath.MoveByOne(_items.Count, pages, up: false, out var newPositions);
         if (order is null) return;
         await ReorderAsync(order, newPositions, "Move pages down");
+    }
+
+    private async void OnMoveTop(object sender, RoutedEventArgs e)
+    {
+        if (!RequireSelection(out var pages)) return;
+        var order = PageMath.MoveTo(_items.Count, pages, 0, out var newPositions);
+        if (order is null) return;
+        await ReorderAsync(order, newPositions, "Move pages to the start");
+    }
+
+    private async void OnMoveBottom(object sender, RoutedEventArgs e)
+    {
+        if (!RequireSelection(out var pages)) return;
+        var order = PageMath.MoveTo(_items.Count, pages, _items.Count, out var newPositions);
+        if (order is null) return;
+        await ReorderAsync(order, newPositions, "Move pages to the end");
     }
 
     private async Task ReorderAsync(List<int> order, List<int> newPositions, string description)

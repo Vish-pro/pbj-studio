@@ -554,6 +554,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
+            App.LogError("Highlight selection", ex);
             MessageDialog.Show(this, "Could not highlight the text.\n\n" + ex.Message, "Highlight",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }

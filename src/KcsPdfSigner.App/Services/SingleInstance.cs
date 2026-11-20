@@ -18,6 +18,9 @@ public static class SingleInstance
     /// <summary>True when this is the first copy running for this user.</summary>
     public static bool TryBecomeFirst()
     {
+        // Developers and tests can run extra copies side by side: set PBJ_ALLOW_MULTIPLE=1.
+        if (Environment.GetEnvironmentVariable("PBJ_ALLOW_MULTIPLE") == "1") return true;
+
         _mutex = new Mutex(true, @"Local\PBJStudio.Instance." + Environment.UserName, out var created);
         return created;
     }
@@ -70,6 +73,12 @@ public static class SingleInstance
                     }
 
                     if (paths.Count > 0 || activateOnly) onMessage(paths);
+                }
+                catch (IOException ex) when (ex.Message.Contains("busy", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Another copy already listens (only possible with PBJ_ALLOW_MULTIPLE). This copy
+                    // simply does not receive files from Explorer; no need to keep retrying or logging.
+                    return;
                 }
                 catch (Exception ex)
                 {

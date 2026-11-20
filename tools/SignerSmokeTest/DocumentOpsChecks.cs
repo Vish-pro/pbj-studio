@@ -374,6 +374,40 @@ internal static class DocumentOpsChecks
             Check(PdfTextRegions.SelectText(linkPdf, 1, 0, 0, 5, 5).Text.Length == 0, "selection: empty area returned text");
         });
 
+                Step("[18] PdfPageOps.BuildFromSelection (several sources, order, rotation, password)", () =>
+        {
+            // threePages: PAGE-ONE, PAGE-TWO, PAGE-THREE.  blank4: a four-page file made by inserting blanks.
+            var secret = F("secret.pdf");
+            PdfSecurityOps.Encrypt(threePages, secret, "open-me", "owner-pw", true, true, true);
+
+            var built = F("built.pdf");
+            PdfPageOps.BuildFromSelection(
+            [
+                new PageSelection(threePages, 3),
+                new PageSelection(secret, 1, 90, "owner-pw"),
+                new PageSelection(threePages, 1, -90),
+                new PageSelection(secret, 2, 0, "owner-pw"),
+                new PageSelection(threePages, 3)
+            ], built);
+
+            var markers = PageMarkers(built);
+            Console.WriteLine($"    pages={string.Join(",", markers)} rotations={string.Join(",", Rotations(built))}");
+            Check(PageCount(built) == 5, "build: expected 5 pages");
+            Check(markers.SequenceEqual(["PAGE-THREE", "PAGE-ONE", "PAGE-ONE", "PAGE-TWO", "PAGE-THREE"]),
+                "build: pages not in the order picked (or a source page was wrong)");
+            Check(Rotations(built).SequenceEqual([0, 90, 270, 0, 0]), "build: rotations not applied");
+            Check(!PdfInfoReader.IsEncrypted(built), "build: output should not be encrypted");
+
+            Check(Throws(() => PdfPageOps.BuildFromSelection([new PageSelection(secret, 1)], F("nopw.pdf"))),
+                "build: encrypted source without a password should fail");
+            Check(Throws(() => PdfPageOps.BuildFromSelection([new PageSelection(secret, 1, 0, "open-me")], F("userpw.pdf"))),
+                "build: user password alone must not bypass the owner's restriction");
+            Check(Throws(() => PdfPageOps.BuildFromSelection([new PageSelection(threePages, 9)], F("badpage.pdf"))),
+                "build: page out of range should fail");
+            Check(Throws(() => PdfPageOps.BuildFromSelection([], F("empty.pdf"))), "build: empty list should fail");
+            Check(!File.Exists(F("badpage.pdf")), "build: a failed build must not leave a file behind");
+        });
+
         Step("[16] Bad input", () =>
         {
             Check(Throws(() => PdfInfoReader.Read(F("missing.pdf"))), "missing file did not throw");

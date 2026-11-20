@@ -40,6 +40,10 @@
                         <TextBlock Text="Down" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
+                <Button x:Name="MoveTopButton" Margin="0,0,6,6" Click="OnMoveTop" Content="To top"
+                        ToolTip="Move selected pages to the start" />
+                <Button x:Name="MoveBottomButton" Margin="0,0,6,6" Click="OnMoveBottom" Content="To bottom"
+                        ToolTip="Move selected pages to the end" />
                 <Button x:Name="DeleteButton" Margin="0,0,6,6" Click="OnDelete" ToolTip="Delete selected pages (Del)">
                     <StackPanel Orientation="Horizontal">
                         <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Trash}" Margin="0,0,6,0" />

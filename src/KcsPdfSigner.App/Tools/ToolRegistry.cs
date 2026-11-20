@@ -14,6 +14,7 @@ public static class ToolRegistry
         new CommentPanel(),
         new FormsPanel(),
         new OrganizePagesPanel(),
+        new PageBasketPanel(),
         new CombinePanel(),
         new EditPanel(),
         new RedactPanel(),
