@@ -132,6 +132,10 @@ if (!runResult.Aborted) VerifySignatures(signedPdf, placements.Count, failures);
 
 DocumentOpsChecks.Run(workFolder, sourcePdf, signedPdf, placements.Count, !runResult.Aborted, failures);
 
+// ---- 20 to 29. Signed PDFs behave like Acrobat's elsewhere (viewers, printers, portals) --
+
+if (!runResult.Aborted) SignatureCompatChecks.Run(workFolder, signedPdf, failures);
+
 // ---- Result ------------------------------------------------------------------
 
 Console.WriteLine();

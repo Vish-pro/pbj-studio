@@ -32,6 +32,16 @@ public sealed class SignatureInfo
 /// <summary>Lists the digital signatures in a PDF and checks each one's integrity.</summary>
 public static class SignatureInspector
 {
+    /// <summary>
+    /// True when the PDF carries at least one applied digital signature. Cheap: no integrity check.
+    /// Any change made by rewriting such a file (every edit tool does) invalidates those signatures.
+    /// </summary>
+    public static bool HasSignatures(string path, string? password = null)
+    {
+        using var document = PdfIo.OpenRead(path, password);
+        return new SignatureUtil(document).GetSignatureNames().Count > 0;
+    }
+
     public static List<SignatureInfo> Read(string path, string? password = null)
     {
         using var document = PdfIo.OpenRead(path, password);
