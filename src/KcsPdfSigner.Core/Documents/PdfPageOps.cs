@@ -59,7 +59,12 @@ public static class PdfPageOps
         using var source = PdfIo.OpenRead(input, password);
         foreach (var number in targets) PdfIo.RequirePage(source, number);
 
-        WriteNew(output, target => source.CopyPagesTo(targets, target, new PdfPageFormCopier()));
+        WriteNew(output, target =>
+        {
+            // Bookmarks that point at the copied pages come along.
+            target.InitializeOutlines();
+            source.CopyPagesTo(targets, target, new PdfPageFormCopier());
+        });
     }
 
     /// <summary>
@@ -90,18 +95,56 @@ public static class PdfPageOps
 
             WriteNew(output, target =>
             {
+                target.InitializeOutlines();
                 var copier = new PdfPageFormCopier();
+
+                // The first use of each source page is copied together with the other pages taken
+                // from that file, in one go: links between them (a contents page, "see page 5") and
+                // bookmarks only survive when their target page is copied in the same call. Copying
+                // page by page dropped every internal link.
+                var firstCopies = new Dictionary<(string File, int Page), PdfPage>();
+                foreach (var group in items.GroupBy(i => Path.GetFullPath(i.File), StringComparer.OrdinalIgnoreCase))
+                {
+                    var distinct = group.Select(i => i.PageNumber).Distinct().ToList();
+                    var copied = sources[group.Key].CopyPagesTo(distinct, target, copier);
+                    for (var k = 0; k < distinct.Count; k++) firstCopies[(group.Key, distinct[k])] = copied[k];
+                }
+
+                var ordered = new List<PdfPage>(items.Count);
+                var used = new HashSet<(string File, int Page)>();
+                var repeats = new HashSet<PdfObject>();
                 foreach (var item in items)
                 {
-                    var source = sources[Path.GetFullPath(item.File)];
-                    source.CopyPagesTo(item.PageNumber, item.PageNumber, target, copier);
-
-                    if (item.Rotation != 0)
+                    var key = (Path.GetFullPath(item.File), item.PageNumber);
+                    PdfPage page;
+                    if (used.Add(key))
                     {
-                        var added = target.GetPage(target.GetNumberOfPages());
-                        added.SetRotation(PdfIo.NormalizeRotation(added.GetRotation() + item.Rotation));
+                        page = firstCopies[key];
                     }
+                    else
+                    {
+                        page = sources[key.Item1].CopyPagesTo(item.PageNumber, item.PageNumber, target, copier)[0];
+                        repeats.Add(page.GetPdfObject());
+                    }
+
+                    ordered.Add(page);
                 }
+
+                // Put the pages in the order picked, then apply the extra rotations.
+                for (var position = 1; position <= ordered.Count; position++)
+                {
+                    var current = target.GetPageNumber(ordered[position - 1]);
+                    if (current != position) target.MovePage(current, position);
+                }
+
+                for (var i = 0; i < items.Count; i++)
+                {
+                    if (items[i].Rotation == 0) continue;
+                    ordered[i].SetRotation(PdfIo.NormalizeRotation(ordered[i].GetRotation() + items[i].Rotation));
+                }
+
+                // A page used twice brings its bookmarks twice; keep those of its first use.
+                if (repeats.Count > 0) RemoveBookmarksTo(target, repeats);
             });
         }
         catch (iText.Kernel.Exceptions.BadPasswordException ex)
@@ -215,7 +258,11 @@ public static class PdfPageOps
             var name = start == end ? $"{baseName}_p{start}.pdf" : $"{baseName}_p{start}-{end}.pdf";
             var file = Path.Combine(outputFolder, name);
 
-            WriteNew(file, target => source.CopyPagesTo(start, end, target, new PdfPageFormCopier()));
+            WriteNew(file, target =>
+            {
+                target.InitializeOutlines();
+                source.CopyPagesTo(start, end, target, new PdfPageFormCopier());
+            });
             written.Add(file);
         }
 
@@ -254,6 +301,22 @@ public static class PdfPageOps
                 new PdfCanvas(page).AddImageFittedIntoRectangle(data, new Rectangle(0, 0, width, height), false);
             }
         });
+    }
+
+    private static void RemoveBookmarksTo(PdfDocument document, HashSet<PdfObject> pages)
+    {
+        void Walk(iText.Kernel.Pdf.PdfOutline parent)
+        {
+            foreach (var child in parent.GetAllChildren().ToList())
+            {
+                var target = child.GetDestination()?.GetPdfObject() is PdfArray array && array.Size() > 0 ? array.Get(0) : null;
+                if (target is not null && pages.Contains(target) && child.GetAllChildren().Count == 0) child.RemoveOutline();
+                else Walk(child);
+            }
+        }
+
+        var root = document.GetOutlines(false);
+        if (root is not null) Walk(root);
     }
 
     private static void WriteNew(string output, Action<PdfDocument> fill)
