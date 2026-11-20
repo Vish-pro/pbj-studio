@@ -193,6 +193,11 @@ public partial class ProtectPanel : UserControl, IToolPanel
             });
 
             if (failure is null) break;
+            if (failure is SignedChangeDeclinedException declined)
+            {
+                _host?.SetStatus(declined.Message);
+                return;
+            }
 
             // The password to open is often not enough: ask for the permissions password and retry.
             password = AskOwnerPassword(failure.Message + "\n\nEnter the permissions (owner) password to try again.");

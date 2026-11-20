@@ -552,6 +552,10 @@ public partial class MainWindow
                 "Highlight text");
             SetStatus("Text highlighted. Undo with Ctrl+Z.");
         }
+        catch (KcsPdfSigner.App.Documents.SignedChangeDeclinedException declined)
+        {
+            SetStatus(declined.Message);
+        }
         catch (Exception ex)
         {
             App.LogError("Highlight selection", ex);

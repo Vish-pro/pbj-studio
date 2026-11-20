@@ -37,6 +37,11 @@ internal static class PanelHelpers
             await work();
             return true;
         }
+        catch (SignedChangeDeclinedException declined)
+        {
+            host?.SetStatus(declined.Message);
+            return false;
+        }
         catch (Exception ex)
         {
             host?.SetStatus(description + " failed.");

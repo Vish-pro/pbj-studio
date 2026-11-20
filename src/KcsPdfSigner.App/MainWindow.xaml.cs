@@ -53,6 +53,26 @@ public partial class MainWindow : Window, IStudioHost
     private GridLength _navWidth = new(230);
     private GridLength _toolsWidth = new(400);
 
+    /// <summary>
+    /// Asked once per document before the first change to a digitally signed PDF. Every tool saves
+    /// its change by rewriting the file, and a rewritten file no longer matches its signatures, so
+    /// Acrobat and bank portals would report them as invalid. Not affected by "Do not show edit
+    /// warnings": this one protects signatures already sent or about to be sent.
+    /// </summary>
+    private bool ConfirmChangeToSigned(DocumentSession session)
+    {
+        var message =
+            $"{session.FileName} is digitally signed.\n\n" +
+            "Changing it (pages, comments, text, forms, password, properties or optimising) breaks its " +
+            "signatures: Adobe Acrobat and bank portals will then show them as invalid.\n\n" +
+            "The file on disk stays signed until you save over it. To keep it valid, save your changes " +
+            "with Save As under a new name, or make the changes before signing.\n\n" +
+            "Change this document anyway?";
+
+        return MessageDialog.Show(this, message, "Signed document", MessageBoxButton.OKCancel,
+            MessageBoxImage.Warning) == MessageBoxResult.OK;
+    }
+
     public MainWindow()
     {
         InitializeComponent();
@@ -98,6 +118,7 @@ public partial class MainWindow : Window, IStudioHost
             FindHint.Visibility = FindBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
 
         DocumentSession.CleanStaleFolders(TimeSpan.FromDays(2));
+        DocumentSession.ConfirmChangeToSignedDocument = ConfirmChangeToSigned;
 
         RegisterTools();
         BuildRecentMenu();

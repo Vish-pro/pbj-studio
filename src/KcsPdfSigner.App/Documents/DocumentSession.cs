@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
 using KcsPdfSigner.Core;
+using KcsPdfSigner.Core.Documents;
 
 namespace KcsPdfSigner.App.Documents;
 
@@ -28,6 +29,15 @@ public sealed class DocumentSession : INotifyPropertyChanged, IDisposable
     private Version _saved;
     private int _fileCounter;
     private bool _disposed;
+    private bool _signedChangeAccepted;
+    private readonly Dictionary<string, bool> _signedFiles = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Asked before the first change to a version that carries digital signatures. Every edit
+    /// rewrites the file, which breaks those signatures; return false to leave the document as it
+    /// is. Asked at most once per document. When not set (no UI), changes go ahead.
+    /// </summary>
+    public static Func<DocumentSession, bool>? ConfirmChangeToSignedDocument { get; set; }
 
     private DocumentSession(string originalPath, string workingFolder, Version first, List<PdfPageInfo> pages)
     {
@@ -124,6 +134,7 @@ public sealed class DocumentSession : INotifyPropertyChanged, IDisposable
     public void Apply(Action<string, string> operation, string description, string? passwordAfter = null)
     {
         ThrowIfDisposed();
+        ConfirmChangeAllowed();
         var output = NextFilePath();
 
         try
@@ -146,6 +157,7 @@ public sealed class DocumentSession : INotifyPropertyChanged, IDisposable
     public async Task ApplyAsync(Action<string, string> operation, string description, string? passwordAfter = null)
     {
         ThrowIfDisposed();
+        ConfirmChangeAllowed();
         var input = _current.File;
         var output = NextFilePath();
 
@@ -165,6 +177,39 @@ public sealed class DocumentSession : INotifyPropertyChanged, IDisposable
     /// <summary>Adopts a file produced elsewhere (copied in) as the next version.</summary>
     public void ApplyFile(string producedFile, string description, string? passwordAfter = null)
         => Apply((_, output) => File.Copy(producedFile, output, overwrite: true), description, passwordAfter);
+
+    /// <summary>True when the current version carries at least one digital signature.</summary>
+    public bool HasSignatures
+    {
+        get
+        {
+            var file = _current.File;
+            if (_signedFiles.TryGetValue(file, out var signed)) return signed;
+
+            try
+            {
+                signed = SignatureInspector.HasSignatures(file, _current.Password);
+            }
+            catch
+            {
+                signed = false; // unreadable here: the operation itself will report the problem
+            }
+
+            _signedFiles[file] = signed;
+            return signed;
+        }
+    }
+
+    /// <summary>
+    /// Throws <see cref="SignedChangeDeclinedException"/> when the current version is signed and
+    /// the user chose not to break its signatures.
+    /// </summary>
+    private void ConfirmChangeAllowed()
+    {
+        if (_signedChangeAccepted || ConfirmChangeToSignedDocument is not { } confirm || !HasSignatures) return;
+        if (!confirm(this)) throw new SignedChangeDeclinedException();
+        _signedChangeAccepted = true;
+    }
 
     private void Commit(string output, string description, string? passwordAfter)
     {
@@ -304,4 +349,13 @@ public sealed class DocumentSession : INotifyPropertyChanged, IDisposable
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}
+
+/// <summary>The user kept a signed document unchanged rather than break its signatures.</summary>
+public sealed class SignedChangeDeclinedException : OperationCanceledException
+{
+    public SignedChangeDeclinedException()
+        : base("Not changed: the document's digital signatures were kept.")
+    {
+    }
 }

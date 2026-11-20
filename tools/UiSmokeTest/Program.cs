@@ -407,6 +407,42 @@ int RunAll()
     var summary = Get<TextBlock>(panel, "SummaryText").Text;
     Check(summary.Contains("2 page(s) from 2 file(s)"), $"live summary is right ('{summary}')");
 
+    Console.WriteLine("[5] Changing a signed document asks first");
+    Check(DocumentSession.ConfirmChangeToSignedDocument is not null, "main window installs the signed-document warning");
+    var signedPath = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "signed.pdf");
+    var asked = 0;
+    var answer = false;
+    var installed = DocumentSession.ConfirmChangeToSignedDocument;
+    DocumentSession.ConfirmChangeToSignedDocument = _ => { asked++; return answer; };
+    using (var signedSession = DocumentSession.Open(signedPath))
+    {
+        Check(signedSession.HasSignatures, "signed.pdf is recognised as signed");
+        void Rotate(string input, string output) => PdfPageOps.RotatePages(input, output, [1], 90);
+
+        var declined = false;
+        try { signedSession.Apply(Rotate, "Rotate"); }
+        catch (SignedChangeDeclinedException) { declined = true; }
+        Check(declined && asked == 1 && !signedSession.CanUndo, "declining leaves the signed document unchanged");
+
+        var toolUi = typeof(MainWindow).Assembly.GetType("KcsPdfSigner.App.Tools.ToolUi")!;
+        var viaTool = (Task<bool>)toolUi.GetMethod("ApplyAsync")!.Invoke(null, [null, new Grid(), signedSession, (Action<string, string>)Rotate, "Rotate"])!;
+        Wait(viaTool);
+        Check(!viaTool.Result && asked == 2 && !signedSession.CanUndo, "a tool whose change is declined reports no error and changes nothing");
+
+        answer = true;
+        signedSession.Apply(Rotate, "Rotate");
+        signedSession.Apply(Rotate, "Rotate");
+        Check(asked == 3 && signedSession.CanUndo, "after one OK, further changes go ahead without asking again");
+    }
+
+    using (var unsignedSession = DocumentSession.Open(threePages))
+    {
+        unsignedSession.Apply((input, output) => PdfPageOps.RotatePages(input, output, [1], 90), "Rotate");
+        Check(asked == 3 && unsignedSession.CanUndo, "unsigned documents are changed without the warning");
+    }
+
+    DocumentSession.ConfirmChangeToSignedDocument = installed;
+
     void PreferencesTest()
     {
         Console.WriteLine("[1] Preferences dialog");

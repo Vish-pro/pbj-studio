@@ -33,6 +33,11 @@ internal static class ToolUi
             host?.SetStatus(description + " - done. Ctrl+Z undoes it.");
             return true;
         }
+        catch (SignedChangeDeclinedException declined)
+        {
+            host?.SetStatus(declined.Message);
+            return false;
+        }
         catch (Exception ex)
         {
             App.LogError(description, ex);
