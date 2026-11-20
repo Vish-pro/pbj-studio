@@ -34,9 +34,11 @@ public sealed class SigningCertificate
         !ProviderName.Contains("Enhanced Cryptographic", StringComparison.OrdinalIgnoreCase) &&
         !ProviderName.Contains("Base Cryptographic Provider", StringComparison.OrdinalIgnoreCase);
 
-    public string CommonName => ReadNamePart(Certificate.Subject, "CN") ?? Certificate.Subject;
+    // Read from the decoded name, not by splitting the Subject text: a name such as
+    // "SHARMA, RAVI KUMAR" is quoted in that text, and splitting on commas cut it to "SHARMA".
+    public string CommonName => NamePart(Certificate.GetNameInfo(X509NameType.SimpleName, false), Certificate.Subject);
 
-    public string IssuerName => ReadNamePart(Certificate.Issuer, "CN") ?? Certificate.Issuer;
+    public string IssuerName => NamePart(Certificate.GetNameInfo(X509NameType.SimpleName, true), Certificate.Issuer);
 
     public string SerialNumber => Certificate.SerialNumber;
 
@@ -140,13 +142,6 @@ public sealed class SigningCertificate
         return string.Empty;
     }
 
-    private static string? ReadNamePart(string distinguishedName, string key)
-    {
-        foreach (var part in distinguishedName.Split(',', StringSplitOptions.TrimEntries))
-        {
-            if (part.StartsWith(key + "=", StringComparison.OrdinalIgnoreCase))
-                return part[(key.Length + 1)..].Trim('"', ' ');
-        }
-        return null;
-    }
+    private static string NamePart(string? simpleName, string fallback)
+        => string.IsNullOrWhiteSpace(simpleName) ? fallback : simpleName.Trim();
 }

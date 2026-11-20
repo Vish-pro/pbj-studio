@@ -6,6 +6,7 @@ using iText.Forms.Fields;
 using iText.Forms.Fields.Properties;
 using iText.Forms.Form.Element;
 using iText.Kernel.Pdf;
+using iText.Layout.Element;
 using iText.Signatures;
 using SysX509 = System.Security.Cryptography.X509Certificates;
 
@@ -32,6 +33,23 @@ public sealed class MultiSignatureSigner
 {
     private const string FieldPrefix = "KcsSig";
 
+    private readonly IReadOnlyList<SysX509.X509Certificate2> _extraChainCertificates;
+
+    public MultiSignatureSigner()
+        : this(null)
+    {
+    }
+
+    /// <param name="extraChainCertificates">
+    /// Intermediate (and root) certificates to use when building the chain that is embedded in each
+    /// signature, in addition to the ones Windows already knows. Normally empty: DSC token drivers
+    /// install their CA certificates into Windows.
+    /// </param>
+    public MultiSignatureSigner(IEnumerable<SysX509.X509Certificate2>? extraChainCertificates)
+    {
+        _extraChainCertificates = extraChainCertificates?.ToList() ?? [];
+    }
+
     public Task<SignRunResult> SignAsync(
         SigningCertificate certificate,
         SigningOptions options,
@@ -44,7 +62,7 @@ public sealed class MultiSignatureSigner
             cancellationToken);
     }
 
-    private static SignRunResult Sign(
+    private SignRunResult Sign(
         SigningCertificate certificate,
         SigningOptions options,
         IReadOnlyList<SignaturePlacement> placements,
@@ -69,13 +87,22 @@ public sealed class MultiSignatureSigner
             .ToList();
 
         // Pass 0: every signature field is created before any signature is applied.
-        var document = PrepareSignatureFields(options.InputPath, targets, results);
+        byte[] document;
+        try
+        {
+            document = PrepareSignatureFields(options.InputPath, targets, results);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new InvalidOperationException(Describe(ex), ex);
+        }
 
         using var signature = new TokenExternalSignature(certificate.Certificate);
-        var chain = BuildChain(certificate.Certificate);
+        var chain = BuildChain(certificate.Certificate, _extraChainCertificates);
         var timestampClient = string.IsNullOrWhiteSpace(options.TimestampUrl)
             ? null
             : new TSAClientBouncyCastle(options.TimestampUrl.Trim());
+        var estimatedSize = EstimateSignatureSize(chain, timestampClient is not null);
 
         for (var i = 0; i < results.Count; i++)
         {
@@ -97,7 +124,7 @@ public sealed class MultiSignatureSigner
             {
                 document = SignOneField(
                     document, result.FieldName, certificate, options, signature, chain,
-                    timestampClient);
+                    timestampClient, estimatedSize);
 
                 result.Status = SignStatus.Signed;
                 result.Message = "Signed";
@@ -139,9 +166,26 @@ public sealed class MultiSignatureSigner
     {
         using var buffer = new MemoryStream();
 
+        // A document that already carries signatures (a client's, a co-signer's, or an earlier run)
+        // must only be appended to: rewriting it, as a plain save does, breaks every one of them.
+        // Unsigned documents are still rewritten here, which also repairs a slightly damaged file
+        // before the signing passes (those always append).
+        bool alreadySigned;
+        using (var probe = new PdfDocument(new PdfReader(inputPath)))
+        {
+            alreadySigned = new SignatureUtil(probe).GetSignatureNames().Count > 0;
+            if (ReadCertificationLevel(probe) == 1)
+                throw new InvalidOperationException(
+                    "This PDF was certified by its author with \"no changes allowed\", so any further " +
+                    "signature would invalidate the certification. Ask the author for an uncertified copy.");
+        }
+
+        var stamping = new StampingProperties();
+        if (alreadySigned) stamping.UseAppendMode();
+
         using (var reader = new PdfReader(inputPath))
         using (var writer = new PdfWriter(buffer))
-        using (var document = new PdfDocument(reader, writer))
+        using (var document = new PdfDocument(reader, writer, stamping))
         {
             var form = PdfFormCreator.GetAcroForm(document, true);
             var usedNames = new HashSet<string>(form.GetAllFormFields().Keys, StringComparer.Ordinal);
@@ -187,10 +231,14 @@ public sealed class MultiSignatureSigner
         SigningOptions options,
         TokenExternalSignature signature,
         IX509Certificate[] chain,
-        ITSAClient? timestampClient)
+        ITSAClient? timestampClient,
+        int estimatedSize)
     {
         using var input = new MemoryStream(document, writable: false);
         using var output = new MemoryStream();
+
+        // One moment for both the signature's /M date and the date drawn in the box.
+        var now = DateTimeOffset.Now;
 
         using (var reader = new PdfReader(input))
         {
@@ -199,7 +247,7 @@ public sealed class MultiSignatureSigner
 
             var properties = new SignerProperties()
                 .SetFieldName(fieldName)
-                .SetClaimedSignDate(DateTime.Now)
+                .SetClaimedSignDate(now.LocalDateTime)
                 .SetSignatureCreator("PB&J Studio");
 
             if (!string.IsNullOrWhiteSpace(options.Reason))
@@ -217,7 +265,7 @@ public sealed class MultiSignatureSigner
                 // "Digitally signed by ... / Date: ..." (plus Reason and Location when given) on the right.
                 var description = new System.Text.StringBuilder()
                     .Append("Digitally signed by ").Append(certificate.CommonName).Append('\n')
-                    .Append("Date: ").Append(FormatSignDate(DateTimeOffset.Now));
+                    .Append("Date: ").Append(FormatSignDate(now));
                 if (!string.IsNullOrWhiteSpace(options.Reason))
                     description.Append("\nReason: ").Append(options.Reason.Trim());
                 if (!string.IsNullOrWhiteSpace(options.Location))
@@ -230,21 +278,47 @@ public sealed class MultiSignatureSigner
                 // (Adobe Acrobat puts it there) a subset of it is embedded for an exact match; otherwise
                 // the bundled Source Sans 3 (Adobe's open-source Myriad-style face) is used. The Myriad
                 // file is read from the PC and never shipped with this app.
-                appearance.SetFont(LoadAppearanceFont());
+                var font = LoadAppearanceFont();
+                var fallback = Covers(font, certificate.CommonName + description) ? null : LoadFallbackFont();
+                if (fallback is null)
+                {
+                    appearance.SetFont(font);
+                }
+                else
+                {
+                    // A name, reason or place in Hindi, Kannada or another Indian script: Myriad and
+                    // Source Sans have no such letters, which would print as empty boxes. Those letters
+                    // come from Windows' Nirmala UI; Latin text keeps the usual font.
+                    var provider = new iText.Layout.Font.FontProvider();
+                    provider.AddFont(font.GetFontProgram(), iText.IO.Font.PdfEncodings.IDENTITY_H);
+                    provider.AddFont(fallback, iText.IO.Font.PdfEncodings.IDENTITY_H);
+                    appearance.SetProperty(iText.Layout.Properties.Property.FONT_PROVIDER, provider);
+                    appearance.SetFontFamily(FamilyName(font.GetFontProgram()), FamilyName(fallback));
+                }
 
                 properties.SetSignatureAppearance(appearance);
+            }
+            else
+            {
+                // "Draw name and date" switched off: the box stays blank. Without an appearance of
+                // our own iText would draw its default text block there.
+                properties.SetSignatureAppearance(
+                    new SignatureFieldAppearance(SignerProperties.IGNORED_ID).SetContent(new Div()));
             }
 
             signer.SetSignerProperties(properties);
 
+            // PKCS#7 detached (adbe.pkcs7.detached) is what Adobe Acrobat writes by default and what
+            // every PDF reader and validator accepts; CAdES (ETSI.CAdES.detached) is unknown to older
+            // readers and to many portal validators.
             signer.SignDetached(
                 signature,
                 chain,
                 crlList: null,
                 ocspClient: null,
                 tsaClient: timestampClient,
-                estimatedSize: 0,
-                sigtype: PdfSigner.CryptoStandard.CADES);
+                estimatedSize: estimatedSize,
+                sigtype: PdfSigner.CryptoStandard.CMS);
         }
 
         return output.ToArray();
@@ -252,6 +326,50 @@ public sealed class MultiSignatureSigner
 
     private static string? _fontPath;
     private static bool _fontSearched;
+
+    /// <summary>True when the font has a glyph for every visible character of the text.</summary>
+    internal static bool Covers(iText.Kernel.Font.PdfFont font, string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            var codePoint = char.ConvertToUtf32(text, i);
+            if (char.IsSurrogatePair(text, i)) i++;
+            if (codePoint < 0x20 || char.IsWhiteSpace((char)Math.Min(codePoint, 0xFFFF))) continue;
+            if (!font.ContainsGlyph(codePoint)) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>Windows' font for the Indian scripts (Nirmala UI); null when it is not there.</summary>
+    internal static iText.IO.Font.FontProgram? LoadFallbackFont()
+    {
+        try
+        {
+            var fonts = Environment.GetFolderPath(Environment.SpecialFolder.Fonts);
+            var collection = System.IO.Path.Combine(fonts, "Nirmala.ttc");
+            if (File.Exists(collection))
+                return new iText.IO.Font.TrueTypeCollection(collection).GetFontByTccIndex(0);
+
+            var single = System.IO.Path.Combine(fonts, "Nirmala.ttf");
+            if (File.Exists(single)) return iText.IO.Font.FontProgramFactory.CreateFont(single);
+        }
+        catch
+        {
+            // Unreadable: the letters stay as they are.
+        }
+
+        return null;
+    }
+
+    private static string FamilyName(iText.IO.Font.FontProgram program)
+    {
+        var names = program.GetFontNames();
+        var family = names.GetFamilyName();
+        return family is { Length: > 0 } && family[0] is { Length: > 3 } && !string.IsNullOrEmpty(family[0][3])
+            ? family[0][3]
+            : names.GetFontName();
+    }
 
     private static iText.Kernel.Font.PdfFont LoadAppearanceFont()
     {
@@ -338,13 +456,47 @@ public sealed class MultiSignatureSigner
         var field = form?.GetField(fieldName);
         if (field is null) return;
 
+        // A blank field prepared by someone else may also be marked hidden or screen-only; a signature
+        // drawn into it would then be invisible or vanish on paper.
+        const int hiding = iText.Kernel.Pdf.Annot.PdfAnnotation.INVISIBLE |
+                           iText.Kernel.Pdf.Annot.PdfAnnotation.HIDDEN |
+                           iText.Kernel.Pdf.Annot.PdfAnnotation.NO_VIEW |
+                           iText.Kernel.Pdf.Annot.PdfAnnotation.TOGGLE_NO_VIEW;
+
         foreach (var widget in field.GetWidgets())
         {
-            if ((widget.GetFlags() & iText.Kernel.Pdf.Annot.PdfAnnotation.PRINT) == 0)
-            {
-                widget.SetFlag(iText.Kernel.Pdf.Annot.PdfAnnotation.PRINT);
-            }
+            var flags = widget.GetFlags();
+            var wanted = (flags & ~hiding) | iText.Kernel.Pdf.Annot.PdfAnnotation.PRINT;
+            if (wanted != flags) widget.SetFlags(wanted);
         }
+    }
+
+    /// <summary>The DocMDP permission level (1, 2 or 3) of a certified document; null when not certified.</summary>
+    private static int? ReadCertificationLevel(PdfDocument document)
+    {
+        var docMdp = document.GetCatalog().GetPdfObject().GetAsDictionary(PdfName.Perms)?.GetAsDictionary(PdfName.DocMDP);
+        var references = docMdp?.GetAsArray(PdfName.Reference);
+        if (references is null) return null;
+
+        for (var i = 0; i < references.Size(); i++)
+        {
+            var reference = references.GetAsDictionary(i);
+            if (!PdfName.DocMDP.Equals(reference?.GetAsName(PdfName.TransformMethod))) continue;
+            return reference!.GetAsDictionary(PdfName.TransformParams)?.GetAsNumber(PdfName.P)?.IntValue() ?? 2;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Space reserved for each signature. iText's automatic figure (8 KB, plus 4 KB for a timestamp)
+    /// ignores the certificate chain, and Indian DSC chains (leaf, sub-CA, CA, CCA root) run to 6 to 8 KB
+    /// on their own, which made signing fail with "Not enough space". Reserving too much costs only padding.
+    /// </summary>
+    internal static int EstimateSignatureSize(IReadOnlyCollection<IX509Certificate> chain, bool withTimestamp)
+    {
+        var chainBytes = chain.Sum(certificate => certificate.GetEncoded().Length);
+        return 8192 + chainBytes + (withTimestamp ? 12288 : 0);
     }
 
     /// <summary>Acrobat's date style: 2026.11.12 12:13:01 +05'30'.</summary>
@@ -382,7 +534,8 @@ public sealed class MultiSignatureSigner
     /// alone if the chain cannot be built: the signature is still valid, it just shows as an
     /// unknown identity until the reader locates the intermediates itself.
     /// </summary>
-    private static IX509Certificate[] BuildChain(SysX509.X509Certificate2 leaf)
+    private static IX509Certificate[] BuildChain(
+        SysX509.X509Certificate2 leaf, IReadOnlyList<SysX509.X509Certificate2> extraCertificates)
     {
         var factory = BouncyCastleFactoryCreator.GetFactory();
         var encoded = new List<byte[]>();
@@ -392,6 +545,7 @@ public sealed class MultiSignatureSigner
             using var chain = new SysX509.X509Chain();
             chain.ChainPolicy.RevocationMode = SysX509.X509RevocationMode.NoCheck;
             chain.ChainPolicy.VerificationFlags = SysX509.X509VerificationFlags.AllFlags;
+            chain.ChainPolicy.ExtraStore.AddRange(extraCertificates.ToArray());
             chain.Build(leaf);
 
             foreach (var element in chain.ChainElements)
@@ -413,8 +567,15 @@ public sealed class MultiSignatureSigner
 
     private static string Describe(Exception ex) => ex switch
     {
+        iText.Kernel.Exceptions.BadPasswordException bad when bad.Message.Contains("owner", StringComparison.OrdinalIgnoreCase) =>
+            "This PDF restricts changes with a permissions (owner) password, so it cannot be signed as it is. " +
+            "Remove the restriction in Protect (it needs that password), then sign.",
         iText.Kernel.Exceptions.BadPasswordException =>
             "PDF is password protected, so it cannot be signed without the password.",
+        iText.Kernel.Exceptions.PdfException append when append.Message.Contains("Append mode", StringComparison.OrdinalIgnoreCase) =>
+            "This PDF already carries signatures but its internal structure is damaged, so another signature " +
+            "cannot be added without breaking the existing ones.",
+        InvalidOperationException invalid => invalid.Message,
         UnauthorizedAccessException =>
             "Access denied. Check the output folder is writable.",
         IOException io when io.Message.Contains("being used by another process",
