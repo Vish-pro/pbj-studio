@@ -14,6 +14,12 @@ using KcsPdfSigner.App.Documents;
 using KcsPdfSigner.App.Services;
 using KcsPdfSigner.App.Viewer;
 using KcsPdfSigner.Core.Documents;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.Layout.Properties;
+using PageSize = iText.Kernel.Geom.PageSize;
+using Rectangle = System.Windows.Shapes.Rectangle;
 using Path = System.IO.Path;
 
 var failures = new List<string>();
@@ -26,10 +32,13 @@ void Check(bool ok, string message)
 // Run beside an installed copy of the app: this test must not hand its work to it.
 Environment.SetEnvironmentVariable("PBJ_ALLOW_MULTIPLE", "1");
 
+// Screenshot mode: "UiSmokeTest --shots <folder>" renders the real windows to PNG files (used for the website).
+var shotsDir = args.Length >= 2 && args[0] == "--shots" ? Path.GetFullPath(args[1]) : null;
+
 var docs = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "docs");
 var linksPdf = Path.Combine(docs, "links.pdf");
 var formPdf = Path.Combine(docs, "form.pdf");
-if (!File.Exists(linksPdf) || !File.Exists(formPdf))
+if (shotsDir is null && (!File.Exists(linksPdf) || !File.Exists(formPdf)))
 {
     Console.WriteLine("Run tools\\SignerSmokeTest first (it creates links.pdf and form.pdf).");
     return 2;
@@ -43,7 +52,7 @@ var thread = new Thread(() =>
     try
     {
         SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
-        exitCode = RunAll();
+        exitCode = shotsDir is not null ? RunShots(shotsDir) : RunAll();
     }
     catch (Exception ex)
     {
@@ -102,6 +111,135 @@ T Get<T>(object target, string name)
 
 MethodInfo Method(string name) =>
     typeof(MainWindow).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+
+// ---- Screenshot mode ------------------------------------------------------------------------
+string MakeSample(string folder, string name, string title, int pages)
+{
+    var path = Path.Combine(folder, name);
+    using var writer = new PdfWriter(path);
+    using var pdf = new PdfDocument(writer);
+    var doc = new Document(pdf, PageSize.A4);
+    for (var page = 1; page <= pages; page++)
+    {
+        if (page > 1) doc.Add(new AreaBreak(AreaBreakType.NEXT_PAGE));
+        doc.Add(new Paragraph(title).SetFontSize(20).SetFont(iText.Kernel.Font.PdfFontFactory.CreateFont(iText.IO.Font.Constants.StandardFonts.HELVETICA_BOLD)));
+        doc.Add(new Paragraph($"Page {page} of {pages}").SetFontSize(10).SetMarginBottom(18));
+        for (var i = 0; i < 9; i++)
+            doc.Add(new Paragraph("The quarterly figures were reviewed against the books of account and the supporting vouchers. " +
+                                  "Differences were discussed with the management and are listed in the annexure.").SetFontSize(11).SetMarginBottom(8));
+        doc.Add(new Paragraph("For Sample & Associates").SetFontSize(11).SetMarginTop(30));
+        doc.Add(new Paragraph("Partner").SetFontSize(11));
+    }
+
+    doc.Close();
+    return path;
+}
+
+void SaveWindow(Window window, string file)
+{
+    window.UpdateLayout();
+    var width = (int)Math.Ceiling(window.ActualWidth);
+    var height = (int)Math.Ceiling(window.ActualHeight);
+    var rect = new Rect(0, 0, width, height);
+
+    // Draw on an opaque black sheet so semi-transparent text keeps its true brightness.
+    var visual = new DrawingVisual();
+    using (var dc = visual.RenderOpen())
+    {
+        dc.DrawRectangle(System.Windows.Media.Brushes.Black, null, rect);
+        dc.DrawRectangle(new System.Windows.Media.VisualBrush((Visual)window.Content), null, rect);
+    }
+
+    var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(width, height, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+    bitmap.Render(visual);
+    var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+    encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+    using var stream = File.Create(file);
+    encoder.Save(stream);
+    Console.WriteLine($"  wrote {Path.GetFileName(file)} ({width}x{height})");
+}
+
+void SaveElement(FrameworkElement element, string file, double scale)
+{
+    var width = (int)Math.Ceiling(element.ActualWidth);
+    var height = (int)Math.Ceiling(element.ActualHeight);
+    var rect = new Rect(0, 0, width, height);
+    var visual = new DrawingVisual();
+    using (var dc = visual.RenderOpen())
+    {
+        dc.DrawRectangle(System.Windows.Media.Brushes.Black, null, rect);
+        dc.DrawRectangle(new System.Windows.Media.VisualBrush(element), null, rect);
+    }
+
+    var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)(width * scale), (int)(height * scale), 96 * scale, 96 * scale, System.Windows.Media.PixelFormats.Pbgra32);
+    bitmap.Render(visual);
+    var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+    encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+    using var stream = File.Create(file);
+    encoder.Save(stream);
+    Console.WriteLine($"  wrote {Path.GetFileName(file)} ({bitmap.PixelWidth}x{bitmap.PixelHeight})");
+}
+
+int RunShots(string outDir)
+{
+    Directory.CreateDirectory(outDir);
+    var work = Path.Combine(Path.GetTempPath(), "PBJ-Shots");
+    if (Directory.Exists(work)) Directory.Delete(work, true);
+    Directory.CreateDirectory(work);
+
+    var report = MakeSample(work, "Audit Report.pdf", "Independent Auditor's Report", 4);
+    var statement = MakeSample(work, "Bank Statement.pdf", "Bank Statement", 3);
+    var letter = MakeSample(work, "Covering Letter.pdf", "Covering Letter", 1);
+
+    var app = new App();
+    app.InitializeComponent();
+    app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+    AppSettings.Apply(new AppSettings());
+
+    var window = new MainWindow { Width = 1480, Height = 1120, WindowStartupLocation = WindowStartupLocation.Manual, Left = 20, Top = 20 };
+    window.Show();
+    window.OpenFile(report);
+    PumpNow(5000);
+    SaveWindow(window, Path.Combine(outDir, "main-window.png"));
+
+    // Multiple PDFs: add three files, put pages from each in the new PDF, then show it.
+    window.OpenTool("Multiple PDFs");
+    PumpNow(800);
+    var toolHost = (ContentControl)LogicalTreeHelper.FindLogicalNode(window, "ToolHost");
+    var panel = (FrameworkElement)toolHost.Content;
+    var panelType = panel.GetType();
+    Task AddSource(string path) => (Task)panelType.GetMethod("AddSourceAsync", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, [path, null])!;
+    Wait(AddSource(report));
+    Wait(AddSource(statement));
+    Wait(AddSource(letter));
+    var sources = Get<System.Collections.IList>(panel, "_sources");
+    var addToBasket = panelType.GetMethod("AddToBasket", BindingFlags.Instance | BindingFlags.NonPublic)!;
+    var thumbType = Get<System.Collections.IList>(sources[0]!, "Thumbs")[0]!.GetType();
+    void Pick(int source, params int[] pages)
+    {
+        var thumbs = Get<System.Collections.IList>(sources[source]!, "Thumbs");
+        var list = (System.Collections.IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(thumbType))!;
+        foreach (var page in pages) list.Add(thumbs[page - 1]);
+        addToBasket.Invoke(panel, [list]);
+    }
+
+    Pick(2, 1);        // covering letter first
+    Pick(0, 2, 3, 4);  // report pages 2-4
+    Pick(1, 3);        // statement page 3
+    var sourceList = (ListBox)Get<object>(panel, "SourceList");
+    sourceList.SelectedIndex = 0;
+    PumpNow(1500);
+    if (panel is UserControl { Content: ScrollViewer panelScroll }) panelScroll.ScrollToTop();
+    PumpNow(3500);
+    if (panel is UserControl { Content: ScrollViewer fullScroll })
+    {
+        // Mark two pages as picked so the thumbnails look "in use", then render the whole panel, not just what fits.
+        PumpNow(2500);
+        SaveElement((FrameworkElement)fullScroll.Content, Path.Combine(outDir, "multiple-pdfs.png"), 2);
+    }
+    return 0;
+}
 
 int RunAll()
 {

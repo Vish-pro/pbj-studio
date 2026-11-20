@@ -233,6 +233,9 @@
                 </ItemsPanelTemplate>
             </StatusBar.ItemsPanel>
             <StatusBarItem DockPanel.Dock="Right">
+                <TextBlock x:Name="BuiltByStatus" Text="Built by vistaar.space" Opacity="0.7" Margin="12,0,0,0" />
+            </StatusBarItem>
+            <StatusBarItem DockPanel.Dock="Right">
                 <TextBlock x:Name="ZoomStatus" Text="" MinWidth="60" TextAlignment="Right" />
             </StatusBarItem>
             <StatusBarItem DockPanel.Dock="Right">

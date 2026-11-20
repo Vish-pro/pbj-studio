@@ -985,7 +985,7 @@ public partial class MainWindow : Window, IStudioHost
         MessageDialog.Show(this,
             $"{App.ProductName} {version}\n\n" +
             "View, organise and sign PDF documents. Multi-Sign (DSC) signs one document at many places " +
-            "with a USB DSC token in a single run.\n\nKCS",
+            "with a USB DSC token in a single run.\n\nBuilt by vistaar.space",
             "About", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 }
