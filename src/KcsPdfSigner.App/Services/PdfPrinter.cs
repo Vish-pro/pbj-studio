@@ -44,11 +44,23 @@ public static class PdfPrinter
 
         // Print what Acrobat prints: annotations without the Print flag stay off the paper and
         // print-only ones (NoView) go on it. The screen renderer alone would do the opposite.
-        var printable = PdfPrintPrep.ForPrinting(pdf, password);
+        byte[] printable;
+        string? printPassword = null;
+        try
+        {
+            printable = PdfPrintPrep.ForPrinting(pdf, password);
+        }
+        catch (Exception ex)
+        {
+            // A file the renderer can show but iText cannot rewrite still prints, as it looks on screen.
+            App.LogError("Preparing the print copy (printing the screen view instead)", ex);
+            printable = pdf;
+            printPassword = password;
+        }
 
         var area = dialog.PrintQueue?.GetPrintCapabilities(dialog.PrintTicket)?.PageImageableArea;
         var paginator = new RenderedPdfPaginator(
-            printable, null, pages, pageInfo,
+            printable, printPassword, pages, pageInfo,
             new Size(dialog.PrintableAreaWidth, dialog.PrintableAreaHeight),
             area is null ? new Rect() : new Rect(area.OriginWidth, area.OriginHeight, area.ExtentWidth, area.ExtentHeight));
 

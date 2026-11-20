@@ -9,6 +9,7 @@ using iText.Layout.Element;
 using iText.Signatures;
 using KcsPdfSigner.Core;
 using KcsPdfSigner.Core.Documents;
+using SkiaSharp;
 using Path = System.IO.Path;
 using Rectangle = iText.Kernel.Geom.Rectangle;
 
@@ -121,6 +122,14 @@ internal static class SignatureCompatChecks
                 var manual = PlacementDetector.CreateManual(page, page.Left + page.Width / 2, page.Bottom + page.Height / 2,
                     new DetectionSettings());
                 var (displayWidth, displayHeight) = PageGeometry.DisplaySize(page);
+
+                // The viewer lays the page out at this size and the renderer draws the crop box; when
+                // the two disagree the page is shown stretched and every click lands off target.
+                using (var image = SKBitmap.Decode(PdfPageRasterizer.RenderPng(File.ReadAllBytes(input), 1, 72)))
+                {
+                    Check(Math.Abs(image.Width - displayWidth) <= 1.5 && Math.Abs(image.Height - displayHeight) <= 1.5,
+                        $"{name}: rendered page is {image.Width}x{image.Height} but laid out as {displayWidth:0}x{displayHeight:0}");
+                }
 
                 var spot = fixedSpots.Single();
                 var shown = PageGeometry.UserToDisplay(page, spot.ToRectangle());
