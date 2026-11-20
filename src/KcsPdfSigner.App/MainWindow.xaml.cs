@@ -698,7 +698,7 @@ public partial class MainWindow : Window, IStudioHost
         try
         {
             SetStatus("Preparing to print...");
-            var printed = PdfPrinter.Print(viewer.DocumentBytes, viewer.DocumentPassword, viewer.PageCount,
+            var printed = PdfPrinter.Print(viewer.DocumentBytes, viewer.DocumentPassword, _active.Session.Pages,
                 _active.Session.FileName, viewer.CurrentPage);
             SetStatus(printed ? $"Sent {_active.Session.FileName} to the printer." : "Printing cancelled.");
         }

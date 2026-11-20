@@ -136,6 +136,10 @@ DocumentOpsChecks.Run(workFolder, sourcePdf, signedPdf, placements.Count, !runRe
 
 if (!runResult.Aborted) SignatureCompatChecks.Run(workFolder, signedPdf, failures);
 
+// ---- 30 and up. Printing and page tools match Acrobat ------------------------------
+
+if (!runResult.Aborted) PrintAndKeepChecks.Run(workFolder, failures);
+
 // ---- Result ------------------------------------------------------------------
 
 Console.WriteLine();

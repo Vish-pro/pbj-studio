@@ -4,6 +4,8 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using KcsPdfSigner.App.Viewer;
+using KcsPdfSigner.Core;
+using KcsPdfSigner.Core.Documents;
 
 namespace KcsPdfSigner.App.Services;
 
@@ -13,8 +15,10 @@ public static class PdfPrinter
     public const int PrintDpi = 300;
 
     /// <summary>Shows the print dialog and prints. Returns false when the user cancelled.</summary>
-    public static bool Print(byte[] pdf, string? password, int pageCount, string jobName, int currentPage)
+    public static bool Print(
+        byte[] pdf, string? password, IReadOnlyList<PdfPageInfo> pageInfo, string jobName, int currentPage)
     {
+        var pageCount = pageInfo.Count;
         var dialog = new PrintDialog
         {
             UserPageRangeEnabled = true,
@@ -38,9 +42,13 @@ public static class PdfPrinter
 
         if (pages.Count == 0) return false;
 
+        // Print what Acrobat prints: annotations without the Print flag stay off the paper and
+        // print-only ones (NoView) go on it. The screen renderer alone would do the opposite.
+        var printable = PdfPrintPrep.ForPrinting(pdf, password);
+
         var area = dialog.PrintQueue?.GetPrintCapabilities(dialog.PrintTicket)?.PageImageableArea;
         var paginator = new RenderedPdfPaginator(
-            pdf, password, pages,
+            printable, null, pages, pageInfo,
             new Size(dialog.PrintableAreaWidth, dialog.PrintableAreaHeight),
             area is null ? new Rect() : new Rect(area.OriginWidth, area.OriginHeight, area.ExtentWidth, area.ExtentHeight));
 
@@ -54,13 +62,17 @@ public static class PdfPrinter
         private readonly byte[] _pdf;
         private readonly string? _password;
         private readonly IReadOnlyList<int> _pages;
+        private readonly IReadOnlyList<PdfPageInfo> _pageInfo;
         private readonly Rect _imageable;
 
-        public RenderedPdfPaginator(byte[] pdf, string? password, IReadOnlyList<int> pages, Size pageSize, Rect imageable)
+        public RenderedPdfPaginator(
+            byte[] pdf, string? password, IReadOnlyList<int> pages, IReadOnlyList<PdfPageInfo> pageInfo, Size pageSize,
+            Rect imageable)
         {
             _pdf = pdf;
             _password = password;
             _pages = pages;
+            _pageInfo = pageInfo;
             PageSize = pageSize;
             _imageable = imageable;
         }
@@ -75,15 +87,19 @@ public static class PdfPrinter
 
         public override DocumentPage GetPage(int pageNumber)
         {
-            var bitmap = PageRenderer.Render(_pdf, _pages[pageNumber], _password, PrintDpi);
+            // Large-format pages (A1 drawings, long scans) at 300 dpi would need hundreds of MB per
+            // page; cap the pixels. The page is shrunk to the paper anyway, so detail is not lost.
+            var info = _pageInfo[_pages[pageNumber] - 1];
+            var dpi = PageRenderer.CapDpi(info.Width, info.Height, PrintDpi);
+            var bitmap = PageRenderer.Render(_pdf, _pages[pageNumber], _password, dpi);
 
             // Fit the page inside the printable area, keeping its proportions, centred.
             var area = _imageable.Width > 0 && _imageable.Height > 0
                 ? _imageable
                 : new Rect(0, 0, PageSize.Width, PageSize.Height);
 
-            var imageWidth = bitmap.PixelWidth * 96.0 / PrintDpi;
-            var imageHeight = bitmap.PixelHeight * 96.0 / PrintDpi;
+            var imageWidth = bitmap.PixelWidth * 96.0 / dpi;
+            var imageHeight = bitmap.PixelHeight * 96.0 / dpi;
 
             // Turn landscape pages onto portrait paper (and vice versa) when that fits better.
             var rotate = (imageWidth > imageHeight) != (area.Width > area.Height);

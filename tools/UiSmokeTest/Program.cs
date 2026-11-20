@@ -443,6 +443,31 @@ int RunAll()
 
     DocumentSession.ConfirmChangeToSignedDocument = installed;
 
+    Console.WriteLine("[6] Printing renders each page for the printer, large pages included");
+    var huge = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "huge-page.pdf");
+    using (var hugeDoc = new PdfDocument(new PdfWriter(huge)))
+    {
+        // About A0 x 2 (1189 x 1682 mm): 300 dpi would need over 500 MB for one page.
+        var big = new Document(hugeDoc, new PageSize(3370, 4768));
+        big.Add(new Paragraph("LARGE DRAWING").SetFontSize(120));
+        big.Close();
+    }
+
+    var paginatorType = typeof(PdfPrinter).GetNestedType("RenderedPdfPaginator", BindingFlags.NonPublic)!;
+    foreach (var file in new[] { signedPath, huge })
+    {
+        var bytes = PdfPrintPrep.ForPrinting(File.ReadAllBytes(file), null);
+        var info = PdfPageReader.ReadPages(file, null);
+        var paginator = (System.Windows.Documents.DocumentPaginator)Activator.CreateInstance(paginatorType,
+            [bytes, null, (IReadOnlyList<int>)[1], (IReadOnlyList<KcsPdfSigner.Core.PdfPageInfo>)info, new Size(793, 1122), new Rect(20, 20, 753, 1082)])!;
+        var memoryBefore = GC.GetTotalMemory(true);
+        var printedPage = paginator.GetPage(0);
+        var drawing = VisualTreeHelper.GetDrawing(printedPage.Visual)?.Bounds ?? Rect.Empty;
+        Console.WriteLine($"    {Path.GetFileName(file)}: drawn {drawing.Width:0}x{drawing.Height:0}, " +
+                          $"managed memory +{(GC.GetTotalMemory(false) - memoryBefore) / 1048576.0:0} MB");
+        Check(!drawing.IsEmpty && drawing.Width <= 754 && drawing.Height <= 1083, $"{Path.GetFileName(file)}: printed page fits the paper");
+    }
+
     void PreferencesTest()
     {
         Console.WriteLine("[1] Preferences dialog");
