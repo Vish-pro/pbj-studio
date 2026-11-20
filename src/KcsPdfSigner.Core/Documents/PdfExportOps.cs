@@ -32,7 +32,9 @@ public static class PdfExportOps
         Directory.CreateDirectory(outputFolder);
         var bytes = File.ReadAllBytes(input);
         var baseName = Path.GetFileNameWithoutExtension(input);
-        var options = new RenderOptions(Dpi: dpi);
+        // Annotations and form fields on: without them the exported pages lose every signature,
+        // comment, stamp and filled-in form value (PDFtoImage leaves them out by default).
+        var options = new RenderOptions(Dpi: dpi, WithAnnotations: true, WithFormFill: true);
         var written = new List<string>();
 
         foreach (var page in targets)
