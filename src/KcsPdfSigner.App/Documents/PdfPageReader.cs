@@ -35,9 +35,7 @@ public static class PdfPageReader
             var pages = new List<PdfPageInfo>(document.GetNumberOfPages());
             for (var i = 1; i <= document.GetNumberOfPages(); i++)
             {
-                var page = document.GetPage(i);
-                var size = page.GetPageSize();
-                pages.Add(new PdfPageInfo(i, size.GetWidth(), size.GetHeight(), page.GetRotation()));
+                pages.Add(PageGeometry.Describe(document.GetPage(i), i));
             }
 
             return pages;

@@ -29,9 +29,9 @@ public static class PreviewGeometry
         var scaleX = renderedWidth / rotatedWidth;
         var scaleY = renderedHeight / rotatedHeight;
 
-        var (x0, y0) = ToRotatedPoint(placement.Left, placement.Bottom, page);
+        var (x0, y0) = ToRotatedPoint(placement.Left - page.Left, placement.Bottom - page.Bottom, page);
         var (x1, y1) = ToRotatedPoint(
-            placement.Left + placement.Width, placement.Bottom + placement.Height, page);
+            placement.Left + placement.Width - page.Left, placement.Bottom + placement.Height - page.Bottom, page);
 
         return new PreviewRect(
             Math.Min(x0, x1) * scaleX,
@@ -55,18 +55,21 @@ public static class PreviewGeometry
 
         // Each case inverts the matching branch of ToRotatedPoint. For 270 the forward map is
         // (x, y) -> (Height - y, Width - x), so x comes back from ry and y comes back from rx.
-        return Normalise(page.Rotation) switch
+        var (x, y) = Normalise(page.Rotation) switch
         {
-            90 => ((float)ry, (float)rx),
-            180 => ((float)(page.Width - rx), (float)ry),
-            270 => ((float)(page.Width - ry), (float)(page.Height - rx)),
-            _ => ((float)rx, (float)(page.Height - ry))
+            90 => (ry, rx),
+            180 => (page.Width - rx, ry),
+            270 => (page.Width - ry, page.Height - rx),
+            _ => (rx, page.Height - ry)
         };
+
+        // Back from the visible area's corner to user space (crop boxes need not start at 0, 0).
+        return ((float)(x + page.Left), (float)(y + page.Bottom));
     }
 
     /// <summary>
-    /// Applies the page rotation to a PDF-space point, yielding display coordinates measured in
-    /// points from the top-left of the rendered image.
+    /// Applies the page rotation to a point measured from the visible area's lower-left corner,
+    /// yielding display coordinates in points from the top-left of the rendered image.
     /// </summary>
     private static (double X, double Y) ToRotatedPoint(double x, double y, PdfPageInfo page)
         => Normalise(page.Rotation) switch

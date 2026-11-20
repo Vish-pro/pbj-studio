@@ -7,8 +7,11 @@ using iText.Signatures;
 
 namespace KcsPdfSigner.Core;
 
-/// <summary>Page geometry the UI needs to render previews and place stamps by hand.</summary>
-public sealed record PdfPageInfo(int PageNumber, float Width, float Height, int Rotation);
+/// <summary>
+/// Page geometry the UI needs to render previews and place stamps by hand: the visible page area
+/// (crop box) in unrotated user space, whose lower-left corner is (Left, Bottom), and the page's /Rotate.
+/// </summary>
+public sealed record PdfPageInfo(int PageNumber, float Width, float Height, int Rotation, float Left = 0f, float Bottom = 0f);
 
 /// <summary>Dispatches to whichever detection mode was chosen for this run.</summary>
 public static class PlacementDetector
@@ -36,9 +39,7 @@ public static class PlacementDetector
         var pages = new List<PdfPageInfo>();
         for (var i = 1; i <= document.GetNumberOfPages(); i++)
         {
-            var size = document.GetPage(i).GetPageSize();
-            pages.Add(new PdfPageInfo(i, size.GetWidth(), size.GetHeight(),
-                document.GetPage(i).GetRotation()));
+            pages.Add(PageGeometry.Describe(document.GetPage(i), i));
         }
 
         return pages;
@@ -76,8 +77,7 @@ public static class PlacementDetector
                 if (rectangle is null || rectangle.GetWidth() <= 0 || rectangle.GetHeight() <= 0)
                     continue;
 
-                var page = document.GetPage(pageNumber);
-                var mediaBox = page.GetPageSize();
+                var info = PageGeometry.Describe(document.GetPage(pageNumber), pageNumber);
 
                 placements.Add(new SignaturePlacement
                 {
@@ -89,9 +89,11 @@ public static class PlacementDetector
                     Source = PlacementSource.ExistingField,
                     Label = fieldName,
                     ExistingFieldName = fieldName,
-                    PageWidth = mediaBox.GetWidth(),
-                    PageHeight = mediaBox.GetHeight(),
-                    Rotation = page.GetRotation()
+                    PageWidth = info.Width,
+                    PageHeight = info.Height,
+                    PageLeft = info.Left,
+                    PageBottom = info.Bottom,
+                    Rotation = info.Rotation
                 });
             }
         }
@@ -133,46 +135,59 @@ public static class PlacementDetector
 
         foreach (var pageNumber in targetPages)
         {
-            var page = document.GetPage(pageNumber);
-            var mediaBox = page.GetPageSize();
-
-            placements.Add(BuildFixedPlacement(mediaBox, page.GetRotation(), pageNumber, settings));
+            var page = PageGeometry.Describe(document.GetPage(pageNumber), pageNumber);
+            placements.Add(BuildFixedPlacement(page, settings));
         }
 
         return placements;
     }
 
-    private static SignaturePlacement BuildFixedPlacement(
-        Rectangle mediaBox, int rotation, int pageNumber, DetectionSettings settings)
+    /// <summary>
+    /// The chosen corner of the page as the reader sees it (visible area, after rotation), with the
+    /// stamp upright and the configured width across the page.
+    /// </summary>
+    private static SignaturePlacement BuildFixedPlacement(PdfPageInfo page, DetectionSettings settings)
     {
         var width = settings.StampWidth;
         var height = settings.StampHeight;
         var margin = settings.StampMargin;
+        var (displayWidth, displayHeight) = PageGeometry.DisplaySize(page);
 
         var left = settings.FixedCorner is StampCorner.BottomLeft or StampCorner.TopLeft
-            ? mediaBox.GetLeft() + margin
-            : mediaBox.GetRight() - margin - width;
+            ? margin
+            : displayWidth - margin - width;
 
         var bottom = settings.FixedCorner is StampCorner.BottomLeft or StampCorner.BottomRight
-            ? mediaBox.GetBottom() + margin
-            : mediaBox.GetTop() - margin - height;
+            ? margin
+            : displayHeight - margin - height;
 
-        var placement = new SignaturePlacement
-        {
-            PageNumber = pageNumber,
-            Left = left,
-            Bottom = bottom,
-            Width = width,
-            Height = height,
-            Source = PlacementSource.FixedPosition,
-            Label = settings.FixedCorner.ToString(),
-            PageWidth = mediaBox.GetWidth(),
-            PageHeight = mediaBox.GetHeight(),
-            Rotation = rotation
-        };
+        var placement = FromDisplay(page, left, bottom, width, height, PlacementSource.FixedPosition,
+            settings.FixedCorner.ToString());
 
         placement.ClampToPage();
         return placement;
+    }
+
+    /// <summary>Builds a placement from a rectangle measured on the page as displayed.</summary>
+    internal static SignaturePlacement FromDisplay(
+        PdfPageInfo page, float left, float bottom, float width, float height, PlacementSource source, string label)
+    {
+        var user = PageGeometry.DisplayToUser(page, left, bottom, width, height);
+        return new SignaturePlacement
+        {
+            PageNumber = page.PageNumber,
+            Left = user.GetLeft(),
+            Bottom = user.GetBottom(),
+            Width = user.GetWidth(),
+            Height = user.GetHeight(),
+            Source = source,
+            Label = label,
+            PageWidth = page.Width,
+            PageHeight = page.Height,
+            PageLeft = page.Left,
+            PageBottom = page.Bottom,
+            Rotation = page.Rotation
+        };
     }
 
     /// <summary>
@@ -181,17 +196,25 @@ public static class PlacementDetector
     public static SignaturePlacement CreateManual(
         PdfPageInfo page, float centreX, float centreY, DetectionSettings settings)
     {
+        // The stamp is upright for the reader, so on a page turned 90 or 270 degrees its width runs
+        // along the page's user-space y axis.
+        var sideways = PageGeometry.Normalise(page.Rotation) is 90 or 270;
+        var width = sideways ? settings.StampHeight : settings.StampWidth;
+        var height = sideways ? settings.StampWidth : settings.StampHeight;
+
         var placement = new SignaturePlacement
         {
             PageNumber = page.PageNumber,
-            Left = centreX - settings.StampWidth / 2f,
-            Bottom = centreY - settings.StampHeight / 2f,
-            Width = settings.StampWidth,
-            Height = settings.StampHeight,
+            Left = centreX - width / 2f,
+            Bottom = centreY - height / 2f,
+            Width = width,
+            Height = height,
             Source = PlacementSource.Manual,
             Label = "Placed by hand",
             PageWidth = page.Width,
             PageHeight = page.Height,
+            PageLeft = page.Left,
+            PageBottom = page.Bottom,
             Rotation = page.Rotation
         };
 

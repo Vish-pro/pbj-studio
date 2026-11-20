@@ -49,13 +49,18 @@ public sealed class SignaturePlacement
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// Page dimensions of the unrotated media box, kept so the UI can map these points onto a
-    /// rendered preview. All placement coordinates live in this unrotated space, which is what
-    /// iText uses for signature widget rectangles.
+    /// Size of the visible page area (crop box) in unrotated user space, kept so the UI can map these
+    /// points onto a rendered preview. All placement coordinates live in this unrotated space, which
+    /// is what iText uses for signature widget rectangles.
     /// </summary>
     public required float PageWidth { get; init; }
 
     public required float PageHeight { get; init; }
+
+    /// <summary>Lower-left corner of the visible page area; not always (0, 0).</summary>
+    public float PageLeft { get; init; }
+
+    public float PageBottom { get; init; }
 
     /// <summary>The page's /Rotate value. The preview overlay applies this; signing does not.</summary>
     public int Rotation { get; init; }
@@ -69,7 +74,8 @@ public sealed class SignaturePlacement
     /// <summary>Nudges the placement back inside the page if an offset pushed it over an edge.</summary>
     public void ClampToPage(float margin = 2f)
     {
-        Left = Math.Clamp(Left, margin, Math.Max(margin, PageWidth - Width - margin));
-        Bottom = Math.Clamp(Bottom, margin, Math.Max(margin, PageHeight - Height - margin));
+        Left = Math.Clamp(Left, PageLeft + margin, Math.Max(PageLeft + margin, PageLeft + PageWidth - Width - margin));
+        Bottom = Math.Clamp(Bottom, PageBottom + margin,
+            Math.Max(PageBottom + margin, PageBottom + PageHeight - Height - margin));
     }
 }

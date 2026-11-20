@@ -167,7 +167,7 @@ internal static class PdfIo
     /// <summary>Size of the page as the reader sees it (width and height swap at 90 and 270).</summary>
     internal static (float Width, float Height) DisplaySize(PdfPage page)
     {
-        var box = page.GetPageSize();
+        var box = PageGeometry.VisibleBox(page);
         var rotation = NormalizeRotation(page.GetRotation());
         return rotation is 90 or 270 ? (box.GetHeight(), box.GetWidth()) : (box.GetWidth(), box.GetHeight());
     }
@@ -180,7 +180,7 @@ internal static class PdfIo
     /// </summary>
     internal static (float X, float Y) DisplayToUser(PdfPage page, float dx, float dy)
     {
-        var box = page.GetPageSize();
+        var box = PageGeometry.VisibleBox(page);
         float x0 = box.GetLeft(), y0 = box.GetBottom(), x1 = box.GetRight(), y1 = box.GetTop();
 
         return NormalizeRotation(page.GetRotation()) switch

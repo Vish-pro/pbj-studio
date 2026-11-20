@@ -22,7 +22,7 @@ public static class TextAnchorDetector
             if (placements.Count >= settings.MaxPlacements) break;
 
             var page = document.GetPage(pageNumber);
-            var mediaBox = page.GetPageSize();
+            var info = PageGeometry.Describe(page, pageNumber);
 
             foreach (var line in PageTextLayout.ReadLines(page))
             {
@@ -36,9 +36,7 @@ public static class TextAnchorDetector
                         var anchorBox = PageTextLayout.UnionOf(line.BoxPerChar, match.Index, match.Length);
                         if (anchorBox is null) continue;
 
-                        var placement = BuildPlacement(
-                            anchorBox, mediaBox, page.GetRotation(), pageNumber, settings,
-                            match.Value.Trim());
+                        var placement = BuildPlacement(anchorBox, info, settings, match.Value.Trim());
 
                         if (!IsDuplicate(placements, placement, settings.DeduplicateWithin))
                             placements.Add(placement);
@@ -91,14 +89,17 @@ public static class TextAnchorDetector
         return matchers;
     }
 
+    /// <summary>
+    /// Positions the stamp relative to the anchor as the reader sees the page (above means higher
+    /// on the displayed page, also on a rotated page), then converts it back to user space.
+    /// </summary>
     private static SignaturePlacement BuildPlacement(
-        Rectangle anchor,
-        Rectangle mediaBox,
-        int rotation,
-        int pageNumber,
+        Rectangle userAnchor,
+        PdfPageInfo page,
         DetectionSettings settings,
         string label)
     {
+        var anchor = PageGeometry.UserToDisplay(page, userAnchor);
         var width = settings.StampWidth;
         var height = settings.StampHeight;
 
@@ -116,19 +117,8 @@ public static class TextAnchorDetector
         if (settings.Align is AnchorAlign.Above or AnchorAlign.Below)
             left += settings.OffsetX;
 
-        var placement = new SignaturePlacement
-        {
-            PageNumber = pageNumber,
-            Left = left,
-            Bottom = bottom,
-            Width = width,
-            Height = height,
-            Source = PlacementSource.TextAnchor,
-            Label = label,
-            PageWidth = mediaBox.GetWidth(),
-            PageHeight = mediaBox.GetHeight(),
-            Rotation = rotation
-        };
+        var placement = PlacementDetector.FromDisplay(page, left, bottom, width, height,
+            PlacementSource.TextAnchor, label);
 
         placement.ClampToPage();
         return placement;
