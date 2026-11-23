@@ -135,7 +135,8 @@ untick **Show suggestions** in Preferences (Ctrl+K); **Reset suggestions** there
 What the suggestions cannot see: signature spots and sideways pages are found from the text, so a scanned
 page (a picture) is not checked; scans are recognised, but the "make it searchable (OCR)" bar only appears once
 an OCR tool is added to the app. Hidden information does not cover names typed on the pages or form entries.
-The bars are checked again after every change; the after-merging and ready-to-send bars only show for the
+On a PDF whose owner has restricted it, bars that would change the file are not offered (it cannot be
+changed without the owner password). The bars are checked again after every change; the after-merging and ready-to-send bars only show for the
 file exactly as the tool produced it.
 
 ## Preferences (Ctrl+K)
