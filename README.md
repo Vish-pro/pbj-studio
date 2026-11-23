@@ -83,6 +83,35 @@ looking at.
 The visible signature looks like Acrobat's: your name large on the left, "Digitally signed by ..." and the date on the right,
 plus Reason and Location lines when you fill them in. It uses the Myriad Pro font when Adobe Acrobat is installed on the PC (read from the PC, never shipped with this app), and otherwise the bundled Source Sans 3 (Adobe's open-source, Myriad-style font), so it looks right on every PC.
 
+## Check that a signed PDF is valid
+
+Open any signed PDF (signed here, in Acrobat, on a DSC portal or by a bank). A banner above the page tells you the result,
+like Acrobat's:
+
+- **Signed and all signatures are valid.** Nothing was changed after signing (or only later signatures, form filling or
+  comments), and the signer's certificate leads to a certificate you trust.
+- **Signature validity is unknown.** The document is unchanged, but the signer could not be confirmed: the certificate is
+  not trusted on this PC, its revocation could not be checked (offline), or a change could not be classified.
+- **At least one signature has problems.** The file was altered after signing, a signature is damaged, or the certificate
+  was expired or revoked.
+
+Click **Signature Panel** (or the shield tab in the left pane) to see every signature with its status. Double-click one for
+its **Signature Properties**: signer, certificate, signing time (a trusted timestamp, or only the clock on the signer's
+computer), the list of checks, **View certificate**, **Trust this certificate**, **Validate** and **Copy details**.
+**Sign > Validate signatures** checks everything again, for example after you go online. Empty signature fields are listed
+as "not signed yet", and a small tick, question mark or cross is drawn on each signature box.
+
+**Why Indian DSC signatures show "unknown" at first.** Indian DSC certificates lead up to the CCA India root certificate,
+which Windows usually does not include (Acrobat shows "unknown" for the same reason until you trust that root). To trust it in
+PB&J Studio: download the CCA India root certificate from cca.gov.in, compare its thumbprint with the one published there,
+then open **Sign > Trusted certificates...** (also in Preferences) and click **Add from file...**. Or open a DSC signature's
+properties, pick the root at the end of the certificate chain and click **Trust this certificate**. The list is kept in
+`%APPDATA%\KcsPdfStudio\trusted-certs.json` and is used by PB&J Studio only; Windows is not changed. Nothing is trusted
+without you asking.
+
+Good to know: revocation is checked online only when the certificate names a revocation service; offline it says
+"revocation not checked". Revocation data embedded in a signature (LTV) is not evaluated.
+
 ## Preferences (Ctrl+K)
 
 Open **Edit > Preferences** or press Ctrl+K. Everything here takes effect as soon as you press OK.
