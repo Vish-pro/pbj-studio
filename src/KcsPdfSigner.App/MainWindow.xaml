@@ -52,6 +52,7 @@
                     <MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Save}" /></MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="Save _as..." InputGestureText="Ctrl+Shift+S" Command="{Binding SaveAsCommand}" />
+                <MenuItem Header="Save a copy _without password..." Command="{Binding RemovePasswordCopyCommand}" />
                 <MenuItem Header="_Close document" InputGestureText="Ctrl+W" Command="{Binding CloseTabCommand}">
                     <MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Close}" /></MenuItem.Icon>
                 </MenuItem>

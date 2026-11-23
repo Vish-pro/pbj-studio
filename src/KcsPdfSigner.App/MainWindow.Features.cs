@@ -56,6 +56,11 @@ public partial class MainWindow
     private RelayCommand? _snapshotToolCommand;
 
     public RelayCommand PreferencesCommand => _preferencesCommand ??= new RelayCommand(OpenPreferences);
+    private RelayCommand? _removePasswordCommand;
+
+    public RelayCommand RemovePasswordCopyCommand =>
+        _removePasswordCommand ??= new RelayCommand(RemovePasswordCopy, () => _active?.Session.IsEncrypted == true);
+
     public RelayCommand SendWhatsAppCommand => _whatsAppCommand ??= new RelayCommand(SendToWhatsApp, HasDocument);
     public RelayCommand SelectToolCommand => _selectToolCommand ??= new RelayCommand(() => SetPointerTool(PointerTool.Select), HasDocument);
     public RelayCommand HandToolCommand => _handToolCommand ??= new RelayCommand(() => SetPointerTool(PointerTool.Hand), HasDocument);
@@ -87,6 +92,74 @@ public partial class MainWindow
     // ======================================================================
     // Preferences, session restore, close prompt
     // ======================================================================
+
+    /// <summary>
+    /// Saves an unprotected copy of a password-protected PDF, after a warning and a typed confirmation.
+    /// The original file stays protected. Like Acrobat, the owner (permissions) password is needed when the
+    /// password used to open the file does not carry full permissions.
+    /// </summary>
+    private void RemovePasswordCopy()
+    {
+        var session = _active?.Session;
+        if (session is null || !session.IsEncrypted) return;
+
+        var typed = MessageDialog.Prompt(this,
+            "WARNING: the copy will have NO password. Anyone who gets the file can open, read, print and copy it.\n\n" +
+            "Your original file stays protected. Only continue if you are allowed to remove the protection " +
+            "(for example, it is your own document or statement).\n\nType  REMOVE PASSWORD  to continue.",
+            "Save a copy without password");
+        if (typed is null) return;
+        if (!string.Equals(typed.Trim(), "REMOVE PASSWORD", StringComparison.Ordinal))
+        {
+            SetStatus("Not confirmed: the words did not match REMOVE PASSWORD. Nothing was saved.");
+            MessageDialog.Show(this, "The words did not match, so nothing was saved.\n\nType REMOVE PASSWORD in capital letters.",
+                "Not confirmed", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var password = session.Password ?? "";
+        var access = KcsPdfSigner.Core.Documents.PdfPermissions.Inspect(session.CurrentFile, password);
+        if (access.IsRestricted)
+        {
+            var owner = MessageDialog.Prompt(this,
+                "This PDF has a separate owner (permissions) password. Enter it to remove the protection.",
+                "Owner password needed", isPassword: true);
+            if (owner is null) return;
+            password = owner;
+        }
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Save a copy without password",
+            Filter = "PDF files (*.pdf)|*.pdf",
+            InitialDirectory = System.IO.Path.GetDirectoryName(session.OriginalPath),
+            FileName = System.IO.Path.GetFileNameWithoutExtension(session.FileName) + " (no password).pdf",
+            AddExtension = true,
+            DefaultExt = ".pdf"
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        var target = dialog.FileName;
+        if (string.Equals(System.IO.Path.GetFullPath(target), System.IO.Path.GetFullPath(session.OriginalPath), StringComparison.OrdinalIgnoreCase))
+        {
+            MessageDialog.Show(this, "Choose a different file name: the original must stay protected.",
+                "Save a copy without password", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            KcsPdfSigner.Core.Documents.PdfSecurityOps.Decrypt(session.CurrentFile, target, password);
+            SetStatus($"Saved an unprotected copy: {System.IO.Path.GetFileName(target)}. The original is unchanged.");
+        }
+        catch (Exception ex)
+        {
+            App.LogError("Save a copy without password", ex);
+            MessageDialog.Show(this, "Could not remove the password.\n\n" + ex.Message +
+                "\n\nIf the file has an owner password, it must be entered correctly.",
+                "Save a copy without password", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     private void OpenPreferences()
     {

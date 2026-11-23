@@ -352,6 +352,8 @@ int RunAll()
     Check(linkViewer.InteractionMode == InteractionMode.Browse, "hand tool restores browse mode");
 
     Console.WriteLine("[3] Session list and display settings");
+    Check(window.RemovePasswordCopyCommand is not null && !window.RemovePasswordCopyCommand.CanExecute(null),
+        "'Save a copy without password' is disabled for a document that has no password");
     var builtBy = Get<TextBlock>(window, "BuiltByStatus");
     var builtByLink = builtBy.Inlines.OfType<System.Windows.Documents.Hyperlink>().FirstOrDefault();
     Check(builtByLink is not null && builtByLink.NavigateUri?.Host.EndsWith("vistaar.space") == true,
