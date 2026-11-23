@@ -607,6 +607,45 @@ int RunAll()
         Check(window.VisibleSuggestions.FirstOrDefault()?.Message == "Your new PDF has 3 pages. Add page numbers?",
             "freshly merged file: 'Your new PDF has 3 pages. Add page numbers?'");
 
+        // Its action opens the Edit tool with "Page numbers" ticked.
+        Wait(window.VisibleSuggestions.First(s => s.Id == SuggestionIds.MergedPageNumbers).Run!());
+        var toolHost = (ContentControl)LogicalTreeHelper.FindLogicalNode(window, "ToolHost");
+        Check(toolHost.Content is KcsPdfSigner.App.Tools.EditPanel edit && Get<CheckBox>(edit, "PageNumbersCheck").IsChecked == true,
+            "'Add page numbers' opens Edit with Page numbers ticked");
+
+        // Sideways pages: the action straightens them in one undoable step and the bar goes away.
+        var sidewaysPath = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "advisor", "sideways.pdf");
+        var sideways = window.OpenFile(sidewaysPath)!;
+        WaitFor(() => Bars().Contains(SuggestionIds.SidewaysPages));
+        Check(Bars().Contains(SuggestionIds.SidewaysPages), "sideways.pdf shows '3 pages look sideways or upside down'");
+        Wait(window.VisibleSuggestions.First(s => s.Id == SuggestionIds.SidewaysPages).Run!());
+        WaitFor(() => !Bars().Contains(SuggestionIds.SidewaysPages));
+        Check(sideways.CanUndo && sideways.UndoDescription == "Straighten pages" && !Bars().Contains(SuggestionIds.SidewaysPages)
+              && DocumentAdvisor.DetectSidewaysPages(sideways.CurrentFile).Count == 0,
+            "'Straighten pages' turns them upright as one undoable change");
+        sideways.Undo();
+        WaitFor(() => Bars().Contains(SuggestionIds.SidewaysPages));
+        Check(Bars().Contains(SuggestionIds.SidewaysPages), "Ctrl+Z brings the pages and the bar back");
+
+        // Signed here: the Send check lists its results with marks.
+        var signedHere = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "signed.pdf");
+        var signedSession = window.OpenFile(signedHere)!;
+        signedSession.MarkOrigin(DocumentOrigin.SignedHere);
+        WaitFor(() => Bars().Contains(SuggestionIds.SignedSendCheck));
+        Check(Bars().FirstOrDefault() == SuggestionIds.SignedSendCheck, "file signed here: 'Run a check before you send it to a bank?' first");
+        var facts = DocumentAdvisor.Inspect(signedSession.CurrentFile, null);
+        var verification = SignatureVerifier.Verify(signedSession.CurrentFile, null, new VerificationOptions { CheckRevocationOnline = false });
+        var sendCheck = new SendCheckDialog(signedSession.FileName, facts, verification, false, 5L * 1024 * 1024);
+        sendCheck.Show();
+        PumpNow(200);
+        foreach (var line in sendCheck.Lines) Console.WriteLine($"    {(line.Mark == SendCheckDialog.Mark.Ok ? "OK" : "! ")} {line.Text}");
+        Console.WriteLine("    verdict: " + sendCheck.Verdict);
+        Check(sendCheck.Lines.Count == 6 && sendCheck.Lines.All(l => l.Mark == SendCheckDialog.Mark.Ok)
+              && sendCheck.Verdict == "Looks good to send.", "Send check on signed.pdf: six checks, all OK, 'Looks good to send.'");
+        var strict = SendCheckDialog.BuildLines(facts, verification, true, 1024);
+        Check(strict.Count(l => l.Mark != SendCheckDialog.Mark.Ok) == 2, "Send check marks a password and a size above the limit with !");
+        sendCheck.Close();
+
         // OCR is a hook only: a scanned file shows no OCR bar while no OCR tool exists.
         var scanPath = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "advisor", "scan.pdf");
         window.OpenFile(scanPath);
