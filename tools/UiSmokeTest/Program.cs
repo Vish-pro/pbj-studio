@@ -45,6 +45,8 @@ if (shotsDir is null && (!File.Exists(linksPdf) || !File.Exists(formPdf)))
 }
 
 var backup = File.Exists(AppSettings.StorePath) ? File.ReadAllText(AppSettings.StorePath) : null;
+// The trusted-certificates list is changed by check [7]; keep the user's own list.
+var trustBackup = File.Exists(TrustedCertificates.StorePath) ? File.ReadAllBytes(TrustedCertificates.StorePath) : null;
 var exitCode = 1;
 
 var thread = new Thread(() =>
@@ -66,6 +68,8 @@ thread.Join();
 
 if (backup is null) { if (File.Exists(AppSettings.StorePath)) File.Delete(AppSettings.StorePath); }
 else File.WriteAllText(AppSettings.StorePath, backup);
+if (trustBackup is null) { if (File.Exists(TrustedCertificates.StorePath)) File.Delete(TrustedCertificates.StorePath); }
+else File.WriteAllBytes(TrustedCertificates.StorePath, trustBackup);
 
 var passed = failures.Count == 0 && exitCode == 0;
 Console.WriteLine(passed ? "\nPASS - all UI checks succeeded." : $"\nFAIL - {failures.Count} check(s) failed.");
@@ -473,6 +477,57 @@ int RunAll()
         Console.WriteLine($"    {Path.GetFileName(file)}: drawn {drawing.Width:0}x{drawing.Height:0}, " +
                           $"managed memory +{(GC.GetTotalMemory(false) - memoryBefore) / 1048576.0:0} MB");
         Check(!drawing.IsEmpty && drawing.Width <= 754 && drawing.Height <= 1083, $"{Path.GetFileName(file)}: printed page fits the paper");
+    }
+
+    Console.WriteLine("[7] Signature check: banner, Signatures pane, trusted certificates");
+    {
+        // Start from an empty trust list (the user's list is restored at the end).
+        if (File.Exists(TrustedCertificates.StorePath)) File.Delete(TrustedCertificates.StorePath);
+        TrustedCertificates.Reload();
+
+        window.OpenFile(signedPath);
+        var signedTab = TabNamed("signed.pdf");
+        tabControl.SelectedIndex = tabs.IndexOf(signedTab);
+        string BannerText() => Get<TextBlock>(window, "BannerText").Text;
+        var banner = Get<Border>(window, "SignatureBanner");
+        for (var i = 0; i < 100 && BannerText().Length == 0; i++) PumpNow(100);
+        Console.WriteLine($"    banner: '{BannerText()}' / '{Get<TextBlock>(window, "BannerDetail").Text}'");
+        Check(banner.Visibility == Visibility.Visible && BannerText() == "Signature validity is unknown.",
+            "signed.pdf (self-signed, not trusted): banner says validity is unknown");
+
+        var nav = Get<KcsPdfSigner.App.Navigation.NavigationPane>(window, "NavPane");
+        var list = Get<ListBox>(nav, "SignatureList");
+        for (var i = 0; i < 100 && (list.ItemsSource as System.Collections.IList)?.Count is null or 0; i++) PumpNow(100);
+        var rows = ((System.Collections.IEnumerable?)list.ItemsSource)?.Cast<KcsPdfSigner.App.Navigation.NavItem>().ToList() ?? [];
+        foreach (var row in rows) Console.WriteLine($"    pane: {row.Title} | {row.Detail.Split('\n')[0]} | glyph={(row.Glyph is null ? "none" : "yes")}");
+        Check(rows.Count == 4 && rows.All(r => r.Detail.StartsWith("Validity unknown") && r.Glyph is not null),
+            "Signatures pane lists 4 signatures with status 'Validity unknown' and a glyph");
+
+        var viewer = Get<PdfViewer>(signedTab, "Viewer");
+        PumpNow(500);
+        var badges = Enumerable.Range(1, viewer.PageCount).Sum(p => viewer.GetOverlay(p)?.Children.OfType<Border>().Count() ?? 0);
+        Check(badges >= 1, $"status badges drawn on the signature boxes ({badges})");
+
+        var firstSig = (SignatureVerification)rows[0].Data!;
+        TrustedCertificates.Add(firstSig.Certificate!.RawData);
+        for (var i = 0; i < 100 && BannerText() != "Signed and all signatures are valid."; i++) PumpNow(100);
+        Console.WriteLine($"    after trusting the signer: '{BannerText()}'");
+        Check(BannerText() == "Signed and all signatures are valid.", "trusting the signer's certificate makes the banner say all valid");
+        var stored = File.Exists(TrustedCertificates.StorePath) ? File.ReadAllText(TrustedCertificates.StorePath) : "";
+        Check(stored.Contains(firstSig.Certificate.Thumbprint), "trusted-certs.json holds the trusted certificate");
+
+        var dialog = new SignaturePropertiesDialog(Get<DocumentSession>(signedTab, "Session"), nav.Verification!, firstSig.FieldName);
+        dialog.Show();
+        PumpNow(300);
+        var title = Get<TextBlock>(dialog, "StatusTitle").Text;
+        var checks = Get<StackPanel>(dialog, "ChecksPanel").Children.Count;
+        Console.WriteLine($"    properties: '{title}', {checks} check line(s)");
+        Check(title.StartsWith("Signature is valid") && checks >= 4, "Signature Properties shows the status and the checks");
+        dialog.Close();
+
+        TrustedCertificates.Remove(firstSig.Certificate.Thumbprint);
+        for (var i = 0; i < 100 && BannerText() != "Signature validity is unknown."; i++) PumpNow(100);
+        Check(BannerText() == "Signature validity is unknown.", "removing the trusted certificate returns the banner to unknown");
     }
 
     void PreferencesTest()

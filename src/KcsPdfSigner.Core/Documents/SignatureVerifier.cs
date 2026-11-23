@@ -238,24 +238,12 @@ public static class SignatureVerifier
         options ??= new VerificationOptions();
         var result = new DocumentVerification();
 
-        byte[] bytes;
-        try
-        {
-            PdfIo.RequireFile(path);
-            bytes = File.ReadAllBytes(path);
-        }
-        catch (Exception ex)
-        {
-            result.DocumentError = ex.Message;
-            Finish(result);
-            return result;
-        }
-
         PdfDocument document;
         PdfReader reader;
         try
         {
-            reader = new PdfReader(new MemoryStream(bytes, false), PdfIo.ReaderProperties(password));
+            PdfIo.RequireFile(path);
+            reader = new PdfReader(path, PdfIo.ReaderProperties(password));
             reader.SetUnethicalReading(true);
             document = new PdfDocument(reader);
         }
@@ -289,6 +277,22 @@ public static class SignatureVerifier
             var widgets = WidgetPlaces(document);
             var form = SafeForm(document);
             var certification = ReadCertification(document);
+
+            // The raw bytes are only needed for signed files (byte ranges and revisions).
+            byte[] bytes = [];
+            if (names.Count > 0)
+            {
+                try
+                {
+                    bytes = File.ReadAllBytes(path);
+                }
+                catch (Exception ex)
+                {
+                    result.DocumentError = "The file could not be read (" + ex.Message + ").";
+                    Finish(result);
+                    return result;
+                }
+            }
 
             int totalRevisions;
             try { totalRevisions = util.GetTotalRevisions(); } catch { totalRevisions = 0; }

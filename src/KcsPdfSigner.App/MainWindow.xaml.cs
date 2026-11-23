@@ -109,6 +109,7 @@ public partial class MainWindow : Window, IStudioHost
 
         DataContext = this;
         InitFeatures();
+        InitSignatures();
 
         NavPane.PageRequested += (_, page) => _active?.Viewer.GoToPage(page);
         DragOver += OnDragOver;
@@ -288,6 +289,7 @@ public partial class MainWindow : Window, IStudioHost
         BuildRecentMenu();
         SetStatus($"Opened {session.FileName} ({session.PageCount} page(s)).");
         AttachFeatures(tab);
+        AttachSignatureChecks(tab);
         return session;
     }
 
@@ -465,6 +467,7 @@ public partial class MainWindow : Window, IStudioHost
         _openTool?.Panel.Attach(tab?.Session, tab?.Viewer);
 
         UpdateChrome();
+        UpdateSignatureBanner();
         ActiveDocumentChanged?.Invoke(this, tab?.Session);
         CommandManager.InvalidateRequerySuggested();
 

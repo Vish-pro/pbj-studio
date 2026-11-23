@@ -54,20 +54,35 @@
         </TabItem>
 
         <!-- Signatures -->
-        <TabItem ToolTip="Signatures" Padding="9,5">
+        <TabItem x:Name="SignaturesTab" ToolTip="Signatures" Padding="9,5">
             <TabItem.Header>
                 <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Shield}" />
             </TabItem.Header>
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="Signatures" Style="{StaticResource PaneTitle}" Margin="10,8,10,4" />
+                <WrapPanel DockPanel.Dock="Top" Margin="8,0,8,6">
+                    <Button x:Name="ValidateAllButton" Content="Validate all" Padding="10,3" Margin="2" Click="OnValidateAll"
+                            ToolTip="Check every signature again (for example after going online)" />
+                    <Button Content="Trusted certificates..." Padding="10,3" Margin="2" Click="OnTrustedCertificates"
+                            ToolTip="Certificates trusted for checking signatures, such as the CCA India root" />
+                </WrapPanel>
+                <TextBlock x:Name="SignatureSummary" DockPanel.Dock="Top" TextWrapping="Wrap" Margin="10,0,10,6"
+                           FontWeight="SemiBold" Visibility="Collapsed" />
                 <TextBlock x:Name="SignaturesEmpty" DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="10,0,10,6" />
-                <ListBox x:Name="SignatureList" BorderThickness="0" SelectionChanged="OnNavItemSelected">
+                <ListBox x:Name="SignatureList" BorderThickness="0" SelectionChanged="OnNavItemSelected"
+                         MouseDoubleClick="OnSignatureDoubleClick" KeyDown="OnSignatureKeyDown"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ToolTip="Double-click a signature (or press Enter) for its properties">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <StackPanel Margin="0,2">
-                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding Detail}" FontSize="11" Opacity="0.75" TextWrapping="Wrap" />
-                            </StackPanel>
+                            <DockPanel Margin="0,2">
+                                <Path DockPanel.Dock="Left" Style="{StaticResource IconPath}" Data="{Binding Glyph}"
+                                      Margin="0,1,8,0" VerticalAlignment="Top" />
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Detail}" FontSize="11" Opacity="0.75" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DockPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>

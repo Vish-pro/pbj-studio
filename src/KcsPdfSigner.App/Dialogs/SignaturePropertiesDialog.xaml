@@ -1,0 +1,60 @@
+<Window x:Class="KcsPdfSigner.App.Dialogs.SignaturePropertiesDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource StudioWindow}"
+        Title="Signature Properties" Width="680" Height="720" MinWidth="520" MinHeight="420"
+        ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Status -->
+        <Border BorderBrush="{StaticResource Brush.Line}" BorderThickness="0,1,0,1" Padding="20,14">
+            <DockPanel>
+                <Path x:Name="StatusGlyph" DockPanel.Dock="Left" Style="{StaticResource IconPath}" Margin="0,2,14,0"
+                      VerticalAlignment="Top">
+                    <Path.LayoutTransform>
+                        <ScaleTransform ScaleX="2" ScaleY="2" />
+                    </Path.LayoutTransform>
+                </Path>
+                <StackPanel>
+                    <TextBlock x:Name="StatusTitle" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock x:Name="StatusText" TextWrapping="Wrap" Margin="0,4,0,0" Opacity="0.85" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="20,10,20,10">
+                <StackPanel x:Name="Details" />
+
+                <TextBlock Text="Certificate" Style="{StaticResource SectionHeading}" Margin="0,16,0,6" />
+                <TextBlock Text="Pick a certificate in the chain (signer first, root last) to view it or to trust it." Style="{StaticResource Hint}"
+                           TextWrapping="Wrap" />
+                <DockPanel Margin="0,8,0,0">
+                    <Button x:Name="TrustButton" DockPanel.Dock="Right" Content="Trust this certificate..." Padding="12,4"
+                            Margin="8,0,0,0" Click="OnTrust" />
+                    <Button x:Name="ViewButton" DockPanel.Dock="Right" Content="View certificate" Padding="12,4" Margin="8,0,0,0"
+                            Click="OnViewCertificate" />
+                    <ComboBox x:Name="ChainBox" />
+                </DockPanel>
+                <StackPanel x:Name="CertificateDetails" Margin="0,8,0,0" />
+
+                <TextBlock Text="Checks" Style="{StaticResource SectionHeading}" Margin="0,16,0,6" />
+                <StackPanel x:Name="ChecksPanel" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" BorderBrush="{StaticResource Brush.Line}" BorderThickness="0,1,0,0">
+            <DockPanel Margin="20,12,20,14" LastChildFill="False">
+                <Button DockPanel.Dock="Left" x:Name="ValidateButton" Content="Validate" Width="100" Click="OnValidate"
+                        ToolTip="Check this signature again (for example after going online)" />
+                <Button DockPanel.Dock="Left" Content="Copy details" Width="110" Margin="10,0,0,0" Click="OnCopy" />
+                <Button DockPanel.Dock="Right" Content="Close" Width="90" IsCancel="True" IsDefault="True" Click="OnClose" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

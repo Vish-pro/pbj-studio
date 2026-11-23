@@ -35,6 +35,10 @@ public partial class PreferencesDialog : Window
         MessageDialog.Show(this, "Edit warnings will be shown again. Press OK to keep this change.", "Warnings reset");
     }
 
+    /// <summary>The trust list is saved by its own dialog straight away (OK or Cancel here does not affect it).</summary>
+    private void OnTrustedCertificates(object sender, RoutedEventArgs e) =>
+        new TrustedCertificatesDialog { Owner = this }.ShowDialog();
+
     private void OnOk(object sender, RoutedEventArgs e)
     {
         if (!int.TryParse(Ppi.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ppi)

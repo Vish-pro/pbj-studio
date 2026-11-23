@@ -136,6 +136,11 @@
                 <MenuItem Header="_Multi-Sign (DSC)..." Click="OnOpenMultiSign">
                     <MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.MultiSign}" /></MenuItem.Icon>
                 </MenuItem>
+                <Separator />
+                <MenuItem Header="_Validate signatures" Command="{Binding ValidateSignaturesCommand}">
+                    <MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Shield}" /></MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="_Trusted certificates..." Click="OnTrustedCertificates" />
             </MenuItem>
             <MenuItem x:Name="ToolsMenu" Header="_Tools" />
             <MenuItem Header="_Help">
@@ -264,7 +269,26 @@
             <GridSplitter x:Name="NavSplitter" Grid.Column="1" HorizontalAlignment="Stretch"
                           ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" />
 
-            <Grid Grid.Column="2">
+            <DockPanel Grid.Column="2">
+            <!-- Signature banner, like Acrobat's: shown when the open PDF carries signatures. -->
+            <Border x:Name="SignatureBanner" DockPanel.Dock="Top" Visibility="Collapsed" BorderBrush="{StaticResource Brush.Fg}"
+                    BorderThickness="1" Margin="6,6,6,2" Padding="10,6">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Signature Panel" Padding="12,3" Margin="10,0,0,0"
+                            VerticalAlignment="Center" Click="OnSignaturePanel"
+                            ToolTip="Show every signature and its status in the navigation pane" />
+                    <Path x:Name="BannerGlyph" DockPanel.Dock="Left" Style="{StaticResource IconPath}" Margin="0,0,10,0">
+                        <Path.LayoutTransform>
+                            <ScaleTransform ScaleX="1.4" ScaleY="1.4" />
+                        </Path.LayoutTransform>
+                    </Path>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="BannerText" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock x:Name="BannerDetail" FontSize="11" Opacity="0.8" TextWrapping="Wrap" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+            <Grid>
                 <TabControl x:Name="DocumentTabs" BorderThickness="0,1,0,0"
                             SelectionChanged="OnDocumentTabChanged" />
                 <StackPanel x:Name="WelcomePanel" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -288,6 +312,7 @@
                                Opacity="0.6" Margin="0,10,0,0" FontSize="11" />
                 </StackPanel>
             </Grid>
+            </DockPanel>
 
             <GridSplitter x:Name="ToolsSplitter" Grid.Column="3" HorizontalAlignment="Stretch"
                           ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" />

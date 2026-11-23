@@ -72,4 +72,9 @@
     <Geometry x:Key="Icon.Error">M1.5,8 A6.5,6.5 0 1 1 14.5,8 A6.5,6.5 0 1 1 1.5,8 Z M5.5,5.5 L10.5,10.5 M10.5,5.5 L5.5,10.5</Geometry>
     <Geometry x:Key="Icon.Question">M1.5,8 A6.5,6.5 0 1 1 14.5,8 A6.5,6.5 0 1 1 1.5,8 Z M6,6.2 C6,4.6 7,4 8,4 C9.2,4 10,4.8 10,5.8 C10,7.4 8,7.4 8,9.2 M8,11.3 L8,11.7</Geometry>
 
+    <!-- Signature status: valid (tick in a circle); unknown uses Icon.Question, invalid Icon.Error. -->
+    <Geometry x:Key="Icon.SigValid">M1.5,8 A6.5,6.5 0 1 1 14.5,8 A6.5,6.5 0 1 1 1.5,8 Z M4.8,8.3 L7,10.5 L11.2,5.8</Geometry>
+    <!-- An empty signature field: a box with a signing line. -->
+    <Geometry x:Key="Icon.SigField">M1.5,4.5 L14.5,4.5 L14.5,11.5 L1.5,11.5 Z M3.5,9.5 L9.5,9.5 M3.5,6.5 L5,8 M5,6.5 L3.5,8</Geometry>
+
 </ResourceDictionary>

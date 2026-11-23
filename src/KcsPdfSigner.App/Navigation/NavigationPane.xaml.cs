@@ -4,7 +4,9 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
+using KcsPdfSigner.App.Dialogs;
 using KcsPdfSigner.App.Documents;
+using KcsPdfSigner.App.Services;
 using KcsPdfSigner.App.Viewer;
 using KcsPdfSigner.Core;
 using KcsPdfSigner.Core.Documents;
@@ -32,6 +34,9 @@ public sealed class NavItem
 
     /// <summary>Whatever the producer wants to keep with the row (e.g. a Core info object).</summary>
     public object? Data { get; init; }
+
+    /// <summary>Status glyph shown before the row (signatures only).</summary>
+    public System.Windows.Media.Geometry? Glyph { get; init; }
 }
 
 /// <summary>Page thumbnail, rendered lazily the first time the list shows it.</summary>
@@ -281,59 +286,94 @@ public partial class NavigationPane : UserControl
 
     // ---- Signatures --------------------------------------------------------
 
+    private DocumentVerification? _verification;
+
+    /// <summary>Raised after "Validate all" started a fresh check, so the banner and badges follow.</summary>
+    public event EventHandler? SignaturesRechecked;
+
+    /// <summary>The last finished check shown in the Signatures tab (null while checking).</summary>
+    public DocumentVerification? Verification => _verification;
+
     /// <summary>
-    /// Fills the Signatures list from Core's SignatureInspector.Read, off the UI thread
-    /// (Title = signer, Detail = date, validity and coverage).
+    /// Fills the Signatures list from Core's SignatureVerifier (shared, cached per document
+    /// version by <see cref="SignatureChecks"/>), off the UI thread: status glyph, signer, status
+    /// and the facts that decided it, then the signature fields not signed yet.
     /// </summary>
     public async void LoadSignatures()
     {
         var generation = ++_signatureGeneration;
+        _verification = null;
+        SignatureSummary.Visibility = Visibility.Collapsed;
         if (_session is null)
         {
             ShowSignatures([], "No document open.");
             return;
         }
 
-        var file = _session.CurrentFile;
-        var password = _session.Password;
+        var session = _session;
         ShowSignatures([], "Checking signatures...");
 
         try
         {
-            var signatures = await Task.Run(() => SignatureInspector.Read(file, password));
+            var result = await SignatureChecks.GetAsync(session);
             if (generation != _signatureGeneration) return;
-            ShowSignatures(signatures.Select(ToSignatureItem).ToList());
+            _verification = result;
+
+            var items = result.Signatures.Select(ToSignatureItem).ToList();
+            items.AddRange(result.UnsignedFields.Select(field => new NavItem
+            {
+                Title = "Not signed yet: " + field.FieldName,
+                Detail = field.PageNumber > 0 ? $"Empty signature field on page {field.PageNumber}" : "Empty signature field (not on a page)",
+                PageNumber = field.PageNumber,
+                X = field.Left,
+                Y = field.Bottom + field.Height,
+                Glyph = TryFindResource("Icon.SigField") as System.Windows.Media.Geometry,
+                Data = field
+            }));
+
+            SignatureSummary.Text = string.IsNullOrEmpty(result.BannerText) ? "" : result.BannerText + "\n" + result.BannerDetail;
+            SignatureSummary.Visibility = string.IsNullOrEmpty(result.BannerText) ? Visibility.Collapsed : Visibility.Visible;
+            ShowSignatures(items, string.IsNullOrEmpty(result.DocumentError) ? "This document is not signed." : result.DocumentError);
         }
         catch (Exception ex)
         {
             if (generation != _signatureGeneration) return;
-            App.LogError("Read signatures", ex);
+            App.LogError("Check signatures", ex);
             ShowSignatures([], "Could not check the signatures: " + ex.Message);
         }
     }
 
-    private static NavItem ToSignatureItem(SignatureInfo info)
+    private NavItem ToSignatureItem(SignatureVerification info)
     {
-        var lines = new List<string>();
-        lines.Add(info.SignDate is { } date ? "Signed " + date.ToString("dd MMM yyyy HH:mm") : "Date not given");
+        var lines = new List<string> { SignatureUi.StatusWord(info.Status) + (info.IsDocumentTimestamp ? " (document timestamp)" : "") };
 
-        if (!string.IsNullOrEmpty(info.Error))
-            lines.Add("NOT VALID - " + info.Error);
-        else
-            lines.Add(info.IntegrityOk ? "Valid - unchanged since signing" : "NOT VALID - changed after signing");
+        lines.Add(info.Changes switch
+        {
+            _ when !info.IntegrityOk => "Changed or damaged since signing",
+            ChangesAfterSigning.None => "Not modified since signing",
+            ChangesAfterSigning.AllowedOnly => "Later changes are allowed ones (signatures, form fill-in, comments)",
+            ChangesAfterSigning.NotAllowed => "Changed after signing in a way that is not allowed",
+            _ => "Changed after signing; changes could not be classified"
+        });
 
-        lines.Add(info.CoversWholeDocument ? "Covers the whole document" : "Does not cover later changes to the document");
+        if (info.IntegrityOk && info.Certificate is not null)
+            lines.Add(info.IdentityTrusted ? "Signer's identity is valid" : "Signer's identity is unknown");
+        if (info.TimestampTime is { } stamp && !info.IsDocumentTimestamp)
+            lines.Add($"Timestamped {stamp:dd MMM yyyy HH:mm}" + (info.TimestampTrusted ? "" : " (authority not trusted)"));
+        else if (info.ClaimedSigningTime is { } date)
+            lines.Add("Signed " + date.ToString("dd MMM yyyy HH:mm") + " (signer's computer clock)");
+        if (info.CertificationLevel > 0) lines.Add("Certified: " + DocumentVerification.CertificationDescription(info.CertificationLevel));
         if (!string.IsNullOrWhiteSpace(info.Reason)) lines.Add("Reason: " + info.Reason);
-        if (!string.IsNullOrWhiteSpace(info.Location)) lines.Add("Location: " + info.Location);
         lines.Add(info.PageNumber > 0 ? $"Field {info.FieldName}, page {info.PageNumber}" : $"Field {info.FieldName} (invisible)");
 
         return new NavItem
         {
-            Title = string.IsNullOrWhiteSpace(info.SignerName) ? "(unknown signer)" : info.SignerName,
+            Title = (string.IsNullOrWhiteSpace(info.SignerName) ? "(unknown signer)" : info.SignerName),
             Detail = string.Join("\n", lines),
             PageNumber = info.PageNumber,
             X = info.Left,
             Y = info.Bottom + info.Height,
+            Glyph = TryFindResource(SignatureUi.GlyphKey(info.Status)) as System.Windows.Media.Geometry,
             Data = info
         };
     }
@@ -343,6 +383,46 @@ public partial class NavigationPane : UserControl
         SignatureList.ItemsSource = items;
         SignaturesEmpty.Text = items.Count == 0 ? emptyMessage : string.Empty;
         SignaturesEmpty.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Brings the Signatures tab to the front.</summary>
+    public void ShowSignaturesTab() => Tabs.SelectedItem = SignaturesTab;
+
+    /// <summary>Checks every signature again (fresh, not from the cache) and refreshes the list.</summary>
+    public void ValidateAll()
+    {
+        if (_session is null) return;
+        _ = SignatureChecks.GetAsync(_session, force: true);
+        LoadSignatures();
+        SignaturesRechecked?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnValidateAll(object sender, RoutedEventArgs e) => ValidateAll();
+
+    private void OnTrustedCertificates(object sender, RoutedEventArgs e) =>
+        new TrustedCertificatesDialog { Owner = Window.GetWindow(this) }.ShowDialog();
+
+    private void OnSignatureDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e) => OpenSelectedSignature();
+
+    private void OnSignatureKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter) return;
+        OpenSelectedSignature();
+        e.Handled = true;
+    }
+
+    private void OpenSelectedSignature()
+    {
+        if (_session is null || _verification is null || SignatureList.SelectedItem is not NavItem { Data: SignatureVerification signature }) return;
+        OpenSignatureProperties(signature.FieldName);
+    }
+
+    /// <summary>Opens the properties of one signature of the current document.</summary>
+    public void OpenSignatureProperties(string fieldName)
+    {
+        if (_session is null || _verification is null) return;
+        var dialog = new SignaturePropertiesDialog(_session, _verification, fieldName) { Owner = Window.GetWindow(this) };
+        dialog.ShowDialog();
     }
 
     // ---- Comments ----------------------------------------------------------
