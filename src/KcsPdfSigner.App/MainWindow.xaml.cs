@@ -110,6 +110,7 @@ public partial class MainWindow : Window, IStudioHost
         DataContext = this;
         InitFeatures();
         InitSignatures();
+        InitSuggestions();
 
         NavPane.PageRequested += (_, page) => _active?.Viewer.GoToPage(page);
         DragOver += OnDragOver;

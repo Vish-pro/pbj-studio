@@ -20,6 +20,7 @@ public static class ToolRegistry
         new RedactPanel(),
         new ProtectPanel(),
         new ExportPanel(),
+        new OcrPanel(),
         new SearchPanel(),
         new PropertiesPanel(),
         new ReadAloudPanel(),

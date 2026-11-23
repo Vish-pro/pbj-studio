@@ -1,0 +1,71 @@
+<UserControl x:Class="KcsPdfSigner.App.Tools.OcrPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="12,4,12,12">
+            <TextBlock x:Name="NoDocumentText" Style="{StaticResource Hint}" Margin="0,8,0,0"
+                       Text="Open a scanned PDF to make it searchable." />
+
+            <StackPanel x:Name="Options">
+                <TextBlock Style="{StaticResource Hint}" Margin="0,8,0,0" TextWrapping="Wrap"
+                           Text="Adds an invisible text layer to scanned pages, so you can search, select and copy their text. The pages look exactly the same. Everything runs on this PC; nothing is uploaded." />
+
+                <TextBlock Text="Pages" Style="{StaticResource SectionHeading}" />
+                <!-- One parent and no GroupName: the three choices group by their shared parent. -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <RadioButton x:Name="AllPagesRadio" Grid.Row="0" Content="All pages" IsChecked="True" Margin="0,2,0,4" />
+                    <RadioButton x:Name="CurrentPageRadio" Grid.Row="1" Content="Current page" Margin="0,2,0,4" />
+                    <RadioButton x:Name="RangeRadio" Grid.Row="2" Content="Pages" VerticalAlignment="Center" Margin="0,2,8,0" />
+                    <TextBox x:Name="RangeBox" Grid.Row="2" Grid.Column="1" Margin="0,2,0,0" GotKeyboardFocus="OnRangeFocus"
+                             ToolTip="For example 1-3, 5, 8-" />
+                </Grid>
+                <CheckBox x:Name="SkipTextCheck" Content="Skip pages that already have text" IsChecked="True" Margin="0,10,0,0"
+                          ToolTip="Typed pages, and pages made searchable before, are left as they are." />
+
+                <TextBlock Text="Languages" Style="{StaticResource SectionHeading}" />
+                <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                           Text="Tick every language the pages are written in, for example Hindi and English." />
+                <ItemsControl x:Name="LanguageList" Margin="0,6,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}" Margin="0,2,0,2" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button x:Name="LanguagesButton" Content="Languages..." HorizontalAlignment="Left" Padding="12,4" Margin="0,8,0,0"
+                        Click="OnLanguages" ToolTip="See, add or remove scan languages" />
+
+                <TextBlock x:Name="EngineText" Style="{StaticResource Hint}" TextWrapping="Wrap" Margin="0,10,0,0" Visibility="Collapsed" />
+            </StackPanel>
+
+            <StackPanel x:Name="RunPanel">
+                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                    <Button x:Name="RunButton" Style="{StaticResource PrimaryButton}" Padding="14,5" Click="OnRun">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Ocr}" Margin="0,0,6,0" />
+                            <TextBlock Text="Make searchable" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="CancelButton" Content="Cancel" Padding="14,5" Margin="8,0,0,0" Click="OnCancel" Visibility="Collapsed" />
+                </StackPanel>
+                <ProgressBar x:Name="Progress" Height="6" Margin="0,10,0,0" Minimum="0" Maximum="1" Visibility="Collapsed" />
+                <TextBlock x:Name="ProgressText" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+                <TextBlock x:Name="ResultText" Margin="0,10,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+            </StackPanel>
+
+            <TextBlock Text="What OCR can and cannot do" Style="{StaticResource SectionHeading}" />
+            <TextBlock Style="{StaticResource Hint}" TextWrapping="Wrap"
+                       Text="Clean printed pages scanned at 300 dpi read well. Handwriting, faint or blurred photos, crooked pages, stamps, signatures and tables read poorly or not at all, so check names, amounts and dates before you rely on them. Of the Indian languages only Hindi has been tried, on clean sample text; the others come from the same official source but are untested here." />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

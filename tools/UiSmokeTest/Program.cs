@@ -245,6 +245,23 @@ int RunShots(string outDir)
         PumpNow(2500);
         SaveElement((FrameworkElement)fullScroll.Content, Path.Combine(outDir, "multiple-pdfs.png"), 2);
     }
+
+    // OCR: the tool on a scanned page (made by tools\SignerSmokeTest), and the Languages dialog.
+    var scanSample = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "ocr", "scan-en.pdf");
+    if (File.Exists(scanSample))
+    {
+        window.OpenFile(scanSample);
+        PumpNow(3000);
+        window.OpenTool("OCR");
+        PumpNow(1500);
+        SaveWindow(window, Path.Combine(outDir, "ocr-tool.png"));
+    }
+
+    var languages = new OcrLanguagesDialog();
+    languages.Show();
+    PumpNow(800);
+    SaveWindow(languages, Path.Combine(outDir, "ocr-languages.png"));
+    languages.Close();
     return 0;
 }
 
@@ -659,12 +676,70 @@ int RunAll()
         Check(strict.Count(l => l.Mark != SendCheckDialog.Mark.Ok) == 2, "Send check marks a password and a size above the limit with !");
         sendCheck.Close();
 
-        // OCR is a hook only: a scanned file shows no OCR bar while no OCR tool exists.
-        var scanPath = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "advisor", "scan.pdf");
-        window.OpenFile(scanPath);
-        PumpNow(1500);
-        var scanFacts = DocumentAdvisor.Inspect(scanPath, null);
-        Check(scanFacts.Scan.IsScanned && !Bars().Contains(SuggestionIds.Scanned), "scanned file: detected, but no OCR bar without an OCR tool");
+        // OCR: the tool is registered, so a scan shows "Make it searchable (OCR)?" and its button opens the tool.
+        Console.WriteLine("[9] OCR tool, scan bars and Languages dialog");
+        Check(Get<System.Collections.IList>(window, "_tools").Cast<object>().Any(t => Get<KcsPdfSigner.App.Tools.IToolPanel>(t, "Panel").Title == "OCR"),
+            "the OCR tool is registered (tools pane and Tools menu)");
+        var ocrDir = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "ocr");
+        var scanPath = Path.Combine(ocrDir, "scan-en.pdf");
+        var scanSession = window.OpenFile(scanPath)!;
+        WaitFor(() => Bars().Contains(SuggestionIds.Scanned));
+        Console.WriteLine("    scan-en.pdf: " + string.Join(" | ", window.VisibleSuggestions.Select(s => s.Message)));
+        Check(window.VisibleSuggestions.Any(s => s.Id == SuggestionIds.Scanned
+                                                 && s.Message == "This looks like a scan: the pages are pictures without text. Make it searchable (OCR)?"),
+            "a scanned file shows 'This looks like a scan... Make it searchable (OCR)?'");
+        Wait(window.VisibleSuggestions.First(s => s.Id == SuggestionIds.Scanned).Run!());
+        PumpNow(300);
+        Check(toolPane.Content is KcsPdfSigner.App.Tools.OcrPanel, "its button opens the OCR tool");
+        var ocrPanel = (KcsPdfSigner.App.Tools.OcrPanel)toolPane.Content;
+        Check(ocrPanel.Languages.Any(l => l.Code == "eng" && l.IsSelected), "English is installed and ticked in the OCR tool");
+        Check(Get<RadioButton>(ocrPanel, "AllPagesRadio").IsChecked == true && Get<CheckBox>(ocrPanel, "SkipTextCheck").IsChecked == true,
+            "the OCR tool starts on All pages with 'Skip pages that already have text' ticked");
+
+        // Run OCR on the scan: text is added as one undoable change, and the scan bar goes away.
+        var run = (Task<bool>)typeof(KcsPdfSigner.App.Tools.OcrPanel).GetMethod("RunAsync", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(ocrPanel, null)!;
+        Wait(run);
+        var ocrText = PdfTextSearch.ExtractText(scanSession.CurrentFile);
+        Console.WriteLine($"    OCR: {ocrPanel.LastResult?.Words} words, confidence {ocrPanel.LastResult?.MeanConfidence:0}%");
+        Check(run.Result && scanSession.CanUndo && scanSession.UndoDescription == "Make searchable (OCR)"
+              && ocrText.Contains("Kamath") && ocrText.Contains("Invoice"), "running OCR adds searchable text as one undoable change");
+        WaitFor(() => !Bars().Contains(SuggestionIds.Scanned));
+        Check(!Bars().Contains(SuggestionIds.Scanned), "after OCR the scan bar is gone");
+        scanSession.Undo();
+        Check(PdfTextSearch.ExtractText(scanSession.CurrentFile).Trim().Length == 0, "Ctrl+Z takes the text away again");
+        WaitFor(() => Bars().Contains(SuggestionIds.Scanned));
+        Check(Bars().Contains(SuggestionIds.Scanned), "and the scan bar comes back");
+
+        // A scan whose picture is turned: orientation detection offers to straighten it.
+        var turnedSession = window.OpenFile(Path.Combine(ocrDir, "scan-90.pdf"))!;
+        WaitFor(() => Bars().Contains(KcsPdfSigner.App.Suggestions.ScannedSidewaysSuggestionProvider.Id));
+        Console.WriteLine("    scan-90.pdf: " + string.Join(" | ", window.VisibleSuggestions.Select(s => s.Message)));
+        Check(window.VisibleSuggestions.Any(s => s.Message == "Scanned page 1 looks sideways or upside down. Straighten it?"),
+            "a sideways scan shows 'Scanned page 1 looks sideways or upside down. Straighten it?'");
+        Wait(window.VisibleSuggestions.First(s => s.Id == KcsPdfSigner.App.Suggestions.ScannedSidewaysSuggestionProvider.Id).Run!());
+        Check(turnedSession.UndoDescription == "Straighten scanned pages" && turnedSession.Pages[0].Rotation == 270,
+            "'Straighten page' turns it upright (/Rotate 270) as one undoable change");
+        WaitFor(() => !Bars().Contains(KcsPdfSigner.App.Suggestions.ScannedSidewaysSuggestionProvider.Id));
+        Check(!Bars().Contains(KcsPdfSigner.App.Suggestions.ScannedSidewaysSuggestionProvider.Id), "the straightened scan has no sideways bar");
+
+        // An upright scan and a picture without text are not called sideways.
+        Check(!Bars().Contains("sideways-pages"), "no text-direction bar on the straightened scan");
+        window.OpenFile(Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "advisor", "scan.pdf"));
+        WaitFor(() => Bars().Contains(SuggestionIds.Scanned));
+        PumpNow(2500);
+        Check(Bars().Contains(SuggestionIds.Scanned) && !Bars().Contains(KcsPdfSigner.App.Suggestions.ScannedSidewaysSuggestionProvider.Id),
+            "a picture without text: scan bar, no sideways bar");
+
+        var languagesDialog = new OcrLanguagesDialog();
+        languagesDialog.Show();
+        PumpNow(300);
+        Console.WriteLine("    languages: " + string.Join(", ", languagesDialog.Rows.Select(r => $"{r.Name} ({r.Source})")));
+        string[] expectedLanguages = ["English", "Hindi", "Kannada", "Marathi", "Tamil", "Telugu", "Malayalam", "Gujarati", "Bengali", "Punjabi", "Urdu"];
+        Check(languagesDialog.Rows.Take(11).Select(r => r.Name).SequenceEqual(expectedLanguages)
+              && languagesDialog.Rows[0].Source != OcrLanguageSource.NotInstalled
+              && languagesDialog.Rows.Where(r => r.Source == OcrLanguageSource.NotInstalled).All(r => r.ActionText == "Add" && r.Detail.Contains("MB")),
+            "the Languages dialog lists English and the ten Indian languages with status, size and Add");
+        languagesDialog.Close();
 
         // Preferences switch hides every bar; switching it back shows them again.
         Select("locked.pdf");

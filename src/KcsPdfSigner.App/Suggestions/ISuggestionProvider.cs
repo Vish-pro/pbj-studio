@@ -18,12 +18,14 @@ namespace KcsPdfSigner.App.Suggestions;
  *    SuggestionRegistry.Register(new MyProvider()) at start-up.
  * 3. Give each suggestion a stable Id: "Don't show this again" is stored by Id in settings.json.
  *
- * The OCR hook already exists: OcrSuggestionProvider shows "This looks like a scan. Make it
- * searchable (OCR)?" as soon as a tool panel titled "OCR" is registered in ToolRegistry, using
- * Core's scan detection (DocumentAnalysis.Scan). For the OCR part of "pages look sideways"
- * (pages that are pictures, where text direction cannot be read), an OCR feature can add a
- * provider that reads context.Analysis.Scan.ScannedPages, finds each page's orientation and returns a
- * suggestion whose Run straightens them with session.ApplyAsync (see DocumentAdvisor.StraightenPages).
+ * 4. Facts that take long to find (reading page orientation with OCR) are worked out in the
+ *    background by the provider itself; when they are ready it calls SuggestionRegistry.RequestRefresh()
+ *    and the bars are built again (see ScannedSidewaysSuggestionProvider).
+ *
+ * OCR uses both: OcrSuggestionProvider shows "This looks like a scan. Make it searchable (OCR)?"
+ * because the "OCR" tool is registered in ToolRegistry, using Core's scan detection
+ * (DocumentAnalysis.Scan); ScannedSidewaysSuggestionProvider reads the orientation of picture
+ * pages (Tesseract's orientation detection) and offers to straighten them.
  */
 
 /// <summary>One bar: a message, optionally one action button.</summary>
@@ -67,7 +69,7 @@ public interface ISuggestionProvider
 /// <summary>The registered providers. The built-in bars from Core are not listed here.</summary>
 public static class SuggestionRegistry
 {
-    private static readonly List<ISuggestionProvider> List = [new OcrSuggestionProvider()];
+    private static readonly List<ISuggestionProvider> List = [new OcrSuggestionProvider(), new ScannedSidewaysSuggestionProvider()];
 
     public static IReadOnlyList<ISuggestionProvider> Providers => List;
 
@@ -75,11 +77,16 @@ public static class SuggestionRegistry
     {
         if (!List.Contains(provider)) List.Add(provider);
     }
+
+    /// <summary>Raised (on any thread) when a provider has new facts; the main window rebuilds its bars.</summary>
+    public static event EventHandler? RefreshRequested;
+
+    public static void RequestRefresh() => RefreshRequested?.Invoke(null, EventArgs.Empty);
 }
 
 /// <summary>
-/// "This looks like a scan. Make it searchable (OCR)?" Shown only when a tool titled "OCR" is
-/// registered, so today (no OCR tool yet) it shows nothing.
+/// "This looks like a scan. Make it searchable (OCR)?" Shown when a tool titled "OCR" is registered
+/// and the file can be changed (an owner-restricted file cannot be rewritten, so it is not offered).
 /// </summary>
 public sealed class OcrSuggestionProvider : ISuggestionProvider
 {
@@ -88,6 +95,7 @@ public sealed class OcrSuggestionProvider : ISuggestionProvider
     public IEnumerable<Suggestion> GetSuggestions(SuggestionContext context)
     {
         if (!context.HasTool(OcrToolTitle)) yield break;
+        if (context.Analysis.Permissions?.IsRestricted == true) yield break;
 
         var finding = DocumentAdvisor.BuildFindings(context.Analysis, new AdvisorOptions { LargeFileBytes = 0 })
             .FirstOrDefault(f => f.Id == SuggestionIds.Scanned);

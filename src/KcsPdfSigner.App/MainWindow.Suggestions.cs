@@ -25,6 +25,14 @@ public partial class MainWindow
     /// <summary>Suggestions dismissed per document for this session ("Dismiss").</summary>
     private readonly ConditionalWeakTable<DocumentSession, HashSet<string>> _dismissedSuggestions = new();
 
+    /// <summary>Providers whose facts arrive later (OCR orientation) ask for the bars to be built again.</summary>
+    private void InitSuggestions()
+    {
+        EventHandler refresh = (_, _) => Dispatcher.BeginInvoke(UpdateSuggestions);
+        SuggestionRegistry.RefreshRequested += refresh;
+        Closed += (_, _) => SuggestionRegistry.RefreshRequested -= refresh;
+    }
+
     private void AttachSuggestions(DocumentTab tab)
     {
         tab.Session.DocumentChanged += (_, _) =>
