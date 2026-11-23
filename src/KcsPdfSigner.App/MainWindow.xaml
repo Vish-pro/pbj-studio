@@ -289,6 +289,8 @@
                     </StackPanel>
                 </DockPanel>
             </Border>
+            <!-- Suggestion bars (at most two), like Acrobat's: see MainWindow.Suggestions.cs. -->
+            <StackPanel x:Name="SuggestionHost" DockPanel.Dock="Top" Margin="0,0,0,4" Visibility="Collapsed" />
             <Grid>
                 <TabControl x:Name="DocumentTabs" BorderThickness="0,1,0,0"
                             SelectionChanged="OnDocumentTabChanged" />

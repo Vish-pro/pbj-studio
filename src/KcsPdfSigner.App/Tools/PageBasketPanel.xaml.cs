@@ -583,7 +583,8 @@ public partial class PageBasketPanel : UserControl, IToolPanel
 
         var files = _basket.Select(b => b.Thumb.Source).Distinct().Count();
         _host?.SetStatus($"Saved {selection.Count} page(s) from {files} file(s) to {Path.GetFileName(target)}.");
-        if (OpenResultBox.IsChecked == true) _host?.OpenDocument(target);
+        // Marked as a fresh merge: the suggestion bar then offers page numbers.
+        if (OpenResultBox.IsChecked == true) _host?.OpenDocument(target)?.MarkOrigin(DocumentOrigin.Merged);
     }
 
     // ---- State -------------------------------------------------------------

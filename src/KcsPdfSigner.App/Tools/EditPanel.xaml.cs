@@ -73,6 +73,18 @@ public partial class EditPanel : UserControl, IToolPanel
         PlaceImageToggle.IsChecked = false;
     }
 
+    /// <summary>
+    /// Ticks "Page numbers" and scrolls to it, ready for "Add to every page" (the suggestion bar shown
+    /// after merging pages uses this).
+    /// </summary>
+    public void ShowPageNumbersOption()
+    {
+        PageNumbersCheck.IsChecked = true;
+        PageNumbersCheck.BringIntoView();
+        PageNumbersCheck.Focus();
+        _host?.SetStatus("Page numbers ticked: press 'Add to every page' in the Edit tool.");
+    }
+
     // ---- Operations (public for tests and automation) ----------------------
 
     public async Task<bool> AddTextAsync(int page, float x, float y, string text, float fontSize)

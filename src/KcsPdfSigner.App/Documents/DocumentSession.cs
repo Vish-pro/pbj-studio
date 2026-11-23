@@ -97,6 +97,26 @@ public sealed class DocumentSession : INotifyPropertyChanged, IDisposable
 
     public bool IsEncrypted => _current.Password is not null;
 
+    private DocumentOrigin _origin = DocumentOrigin.Opened;
+    private string? _originFile;
+
+    /// <summary>
+    /// How this document came to be open (merged by Multiple PDFs / Combine Files, signed by Multi-Sign).
+    /// Only true for the version that was produced: after any change, undo-able or not, it reads Opened.
+    /// </summary>
+    public DocumentOrigin Origin =>
+        _originFile is not null && string.Equals(_originFile, _current.File, StringComparison.OrdinalIgnoreCase)
+            ? _origin
+            : DocumentOrigin.Opened;
+
+    /// <summary>Called by the tool that produced this file, right after opening it.</summary>
+    public void MarkOrigin(DocumentOrigin origin)
+    {
+        _origin = origin;
+        _originFile = _current.File;
+        OnPropertyChanged(nameof(Origin));
+    }
+
     public string FileName => Path.GetFileName(OriginalPath);
 
     /// <summary>File name plus " *" when there are unsaved changes.</summary>

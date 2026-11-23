@@ -27,6 +27,18 @@ public partial class PreferencesDialog : Window
         TouchBox.SelectedIndex = (int)_settings.Touch;
         ScaleBox.SelectedIndex = (int)_settings.Scaling;
         HideWarnings.IsChecked = _settings.HideEditWarnings;
+        ShowSuggestionsBox.IsChecked = _settings.ShowSuggestions;
+        LargeFileBox.Text = _settings.LargeFileMegabytes.ToString("0.##", CultureInfo.InvariantCulture);
+    }
+
+    private void OnResetSuggestions(object sender, RoutedEventArgs e)
+    {
+        var count = _settings.DismissedSuggestions.Count;
+        _settings.DismissedSuggestions = [];
+        ShowSuggestionsBox.IsChecked = true;
+        MessageDialog.Show(this,
+            (count == 0 ? "No suggestions were turned off." : $"{count} suggestion(s) will be shown again.") +
+            " Press OK to keep this change.", "Suggestions reset");
     }
 
     private void OnResetWarnings(object sender, RoutedEventArgs e)
@@ -50,6 +62,19 @@ public partial class PreferencesDialog : Window
             return;
         }
 
+        var mbText = LargeFileBox.Text.Trim();
+        if (!double.TryParse(mbText, NumberStyles.Float, CultureInfo.CurrentCulture, out var megabytes)
+            && !double.TryParse(mbText, NumberStyles.Float, CultureInfo.InvariantCulture, out megabytes)
+            || megabytes < AppSettings.MinLargeFileMegabytes || megabytes > 2000)
+        {
+            MessageDialog.Show(this, "Enter a file size between 0.01 and 2000 MB.", "Preferences",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            LargeFileBox.Focus();
+            return;
+        }
+
+        _settings.ShowSuggestions = ShowSuggestionsBox.IsChecked == true;
+        _settings.LargeFileMegabytes = megabytes;
         _settings.ReopenLastSession = ReopenLastSession.IsChecked == true;
         _settings.PromptBeforeClosingMultiple = PromptMultiple.IsChecked == true;
         _settings.CreateLinksFromUrls = CreateLinks.IsChecked == true;

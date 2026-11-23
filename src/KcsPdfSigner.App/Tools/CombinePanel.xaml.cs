@@ -259,7 +259,8 @@ public partial class CombinePanel : UserControl, IToolPanel
         if (!ok) return;
 
         _host?.SetStatus($"Combined {entries.Count} file(s) into {Path.GetFileName(output)}.");
-        _host?.OpenDocument(output);
+        // Marked as a fresh merge: the suggestion bar then offers page numbers.
+        _host?.OpenDocument(output)?.MarkOrigin(KcsPdfSigner.Core.Documents.DocumentOrigin.Merged);
     }
 
     /// <summary>

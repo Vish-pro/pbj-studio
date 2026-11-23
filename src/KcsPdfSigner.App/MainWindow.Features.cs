@@ -171,6 +171,7 @@ public partial class MainWindow
     {
         ApplyDisplaySettings();
         foreach (var tab in _tabs) AnalyseDocument(tab);
+        UpdateSuggestions();
     }
 
     /// <summary>Reopens the documents that were open when the app was last closed.</summary>

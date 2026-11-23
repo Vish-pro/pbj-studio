@@ -211,7 +211,10 @@ public partial class MainWindow : Window, IStudioHost
     /// Opens a PDF in a new tab, asking for a password if needed. If it is already open, its tab
     /// is activated instead. Returns null when the user cancelled or the file could not be opened.
     /// </summary>
-    public DocumentSession? OpenFile(string path)
+    public DocumentSession? OpenFile(string path) => OpenFile(path, null);
+
+    /// <summary>Same, trying <paramref name="knownPassword"/> first; the user is asked only if it does not open the file.</summary>
+    public DocumentSession? OpenFile(string path, string? knownPassword)
     {
         string fullPath;
         try
@@ -242,7 +245,7 @@ public partial class MainWindow : Window, IStudioHost
         }
 
         DocumentSession? session = null;
-        string? password = null;
+        var password = knownPassword;
 
         while (session is null)
         {
@@ -290,6 +293,8 @@ public partial class MainWindow : Window, IStudioHost
         SetStatus($"Opened {session.FileName} ({session.PageCount} page(s)).");
         AttachFeatures(tab);
         AttachSignatureChecks(tab);
+        AttachSuggestions(tab);
+        if (ReferenceEquals(tab, _active)) UpdateSuggestions();
         return session;
     }
 
@@ -468,6 +473,7 @@ public partial class MainWindow : Window, IStudioHost
 
         UpdateChrome();
         UpdateSignatureBanner();
+        UpdateSuggestions();
         ActiveDocumentChanged?.Invoke(this, tab?.Session);
         CommandManager.InvalidateRequerySuggested();
 

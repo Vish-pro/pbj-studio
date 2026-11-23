@@ -639,7 +639,8 @@ public sealed class MultiSignViewModel : INotifyPropertyChanged
 
         if (!string.IsNullOrWhiteSpace(result.OutputPath) && File.Exists(result.OutputPath))
         {
-            Host?.OpenDocument(result.OutputPath);
+            // Marked as signed here: the suggestion bar then offers the "Send check".
+            Host?.OpenDocument(result.OutputPath)?.MarkOrigin(KcsPdfSigner.Core.Documents.DocumentOrigin.SignedHere);
         }
     }
 

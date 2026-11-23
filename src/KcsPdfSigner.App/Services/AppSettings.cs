@@ -33,6 +33,9 @@ public sealed class AppSettings
 
     public static AppSettings Current { get; private set; } = Load();
 
+    /// <summary>Smallest size threshold allowed in Preferences (0.01 MB = about 10 KB).</summary>
+    public const double MinLargeFileMegabytes = 0.01;
+
     /// <summary>Raised after <see cref="Apply"/> stores new values.</summary>
     public static event EventHandler? Changed;
 
@@ -60,12 +63,25 @@ public sealed class AppSettings
     // Warnings
     public bool HideEditWarnings { get; set; }
 
+    // Suggestions (the bars under the toolbar)
+    public bool ShowSuggestions { get; set; } = true;
+
+    /// <summary>Suggestion ids the user chose "Don't show this again" for.</summary>
+    public List<string> DismissedSuggestions { get; set; } = [];
+
+    /// <summary>Files larger than this (in MB) get the "reduce the file size" suggestion.</summary>
+    public double LargeFileMegabytes { get; set; } = 5;
+
     public AppSettings Clone() => JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(this)) ?? new AppSettings();
 
     /// <summary>Makes <paramref name="updated"/> the current settings, saves them and tells listeners.</summary>
     public static void Apply(AppSettings updated)
     {
         updated.SnapshotPixelsPerInch = Math.Clamp(updated.SnapshotPixelsPerInch, 30, 1200);
+        updated.LargeFileMegabytes = double.IsFinite(updated.LargeFileMegabytes)
+            ? Math.Clamp(updated.LargeFileMegabytes, MinLargeFileMegabytes, 2000)
+            : 5;
+        updated.DismissedSuggestions ??= [];
         Current = updated;
         Save();
         Changed?.Invoke(null, EventArgs.Empty);

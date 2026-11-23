@@ -532,6 +532,106 @@ int RunAll()
         Check(BannerText() == "Signature validity is unknown.", "removing the trusted certificate returns the banner to unknown");
     }
 
+    Console.WriteLine("[8] Suggestion bars");
+    {
+        AppSettings.Apply(new AppSettings());
+        var host = Get<StackPanel>(window, "SuggestionHost");
+        List<string> Bars() => window.VisibleSuggestions.Select(s => s.Id).ToList();
+        void WaitFor(Func<bool> condition) { for (var i = 0; i < 150 && !condition(); i++) PumpNow(100); }
+        KcsPdfSigner.App.Suggestions.SuggestionBar Bar(string id) =>
+            host.Children.OfType<KcsPdfSigner.App.Suggestions.SuggestionBar>().First(b => b.Suggestion.Id == id);
+        void Click(KcsPdfSigner.App.Suggestions.SuggestionBar bar, string button) =>
+            Get<Button>(bar, button).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        void Select(string file) { tabControl.SelectedIndex = tabs.IndexOf(TabNamed(file)); PumpNow(200); }
+
+        var lockedPath = Path.Combine(docs, "locked.pdf");
+        window.OpenFile(lockedPath, "u123");
+        WaitFor(() => Bars().Contains(SuggestionIds.PasswordProtected));
+        Console.WriteLine("    locked.pdf: " + string.Join(", ", Bars()));
+        Check(Bars().Contains(SuggestionIds.PasswordProtected), "password-protected file shows 'Save a copy without password?'");
+        var passwordBar = Bar(SuggestionIds.PasswordProtected);
+        Check(Get<Button>(passwordBar, "ActionButton").Visibility == Visibility.Visible
+              && window.RemovePasswordCopyCommand.CanExecute(null), "its action button is shown and the command is available");
+        Check(host.Children.Count <= 2, $"at most two bars at once ({host.Children.Count})");
+
+        var unsignedPath = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "unsigned.pdf");
+        window.OpenFile(unsignedPath);
+        WaitFor(() => Bars().Contains(SuggestionIds.SigningSpots));
+        Console.WriteLine("    unsigned.pdf: " + string.Join(" | ", window.VisibleSuggestions.Select(s => s.Message)));
+        Check(window.VisibleSuggestions.Any(s => s.Id == SuggestionIds.SigningSpots && s.Message.StartsWith("Found 4 places")),
+            "unsigned.pdf shows 'Found 4 places that look like signature spots'");
+        Check(!Bars().Contains(SuggestionIds.PasswordProtected), "the password bar of the other tab is not shown here");
+
+        // Big file: lower the threshold below the 300-page file's size (about 180 KB).
+        var bigPath = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "advisor", "300-pages.pdf");
+        var lowered = AppSettings.Current.Clone();
+        lowered.LargeFileMegabytes = 0.1;
+        AppSettings.Apply(lowered);
+        window.OpenFile(bigPath);
+        WaitFor(() => Bars().Contains(SuggestionIds.LargeFile));
+        Console.WriteLine("    300-pages.pdf: " + string.Join(" | ", window.VisibleSuggestions.Select(s => s.Message)));
+        Check(window.VisibleSuggestions.Any(s => s.Id == SuggestionIds.LargeFile && s.Message.StartsWith("This file is 0.17 MB")),
+            "big file (threshold lowered to 0.1 MB) shows 'Reduce the file size?'");
+        Check(host.Children.Count == 2, $"two bars when two suggestions apply ({host.Children.Count})");
+
+        // Dismiss: hidden for this document only.
+        Select("unsigned.pdf");
+        WaitFor(() => Bars().Contains(SuggestionIds.SigningSpots));
+        Click(Bar(SuggestionIds.SigningSpots), "DismissButton");
+        WaitFor(() => !Bars().Contains(SuggestionIds.SigningSpots));
+        Check(!Bars().Contains(SuggestionIds.SigningSpots), "Dismiss hides the bar for this document");
+        Select("300-pages.pdf");
+        WaitFor(() => Bars().Contains(SuggestionIds.SigningSpots));
+        Check(Bars().Contains(SuggestionIds.SigningSpots), "the dismissed suggestion still shows for another document");
+        Select("unsigned.pdf");
+        PumpNow(500);
+        Check(!Bars().Contains(SuggestionIds.SigningSpots), "dismissed stays hidden when coming back to the document");
+
+        // Don't show this again: stored in settings.json for every document.
+        Select("300-pages.pdf");
+        WaitFor(() => Bars().Contains(SuggestionIds.LargeFile));
+        Click(Bar(SuggestionIds.LargeFile), "NeverButton");
+        WaitFor(() => !Bars().Contains(SuggestionIds.LargeFile));
+        Check(!Bars().Contains(SuggestionIds.LargeFile), "'Don't show this again' hides the bar");
+        var stored = File.ReadAllText(AppSettings.StorePath);
+        Check(AppSettings.Current.DismissedSuggestions.Contains(SuggestionIds.LargeFile) && stored.Contains("\"large-file\""),
+            "'Don't show this again' is saved in settings.json");
+
+        // After merging: only for a document marked as a fresh merge.
+        var threePath = Path.Combine(docs, "three-pages.pdf");
+        var merged = window.OpenFile(threePath)!;
+        WaitFor(() => Bars().Count > 0);
+        Check(!Bars().Contains(SuggestionIds.MergedPageNumbers), "ordinary file: no 'Add page numbers?'");
+        merged.MarkOrigin(DocumentOrigin.Merged);
+        WaitFor(() => Bars().Contains(SuggestionIds.MergedPageNumbers));
+        Check(window.VisibleSuggestions.FirstOrDefault()?.Message == "Your new PDF has 3 pages. Add page numbers?",
+            "freshly merged file: 'Your new PDF has 3 pages. Add page numbers?'");
+
+        // OCR is a hook only: a scanned file shows no OCR bar while no OCR tool exists.
+        var scanPath = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "advisor", "scan.pdf");
+        window.OpenFile(scanPath);
+        PumpNow(1500);
+        var scanFacts = DocumentAdvisor.Inspect(scanPath, null);
+        Check(scanFacts.Scan.IsScanned && !Bars().Contains(SuggestionIds.Scanned), "scanned file: detected, but no OCR bar without an OCR tool");
+
+        // Preferences switch hides every bar; switching it back shows them again.
+        Select("locked.pdf");
+        WaitFor(() => Bars().Count > 0);
+        var prefsOff = new PreferencesDialog();
+        prefsOff.Show();
+        PumpNow(200);
+        ((CheckBox)LogicalTreeHelper.FindLogicalNode(prefsOff, "ShowSuggestionsBox")).IsChecked = false;
+        FindButton(prefsOff, "OK")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        PumpNow(500);
+        Check(!AppSettings.Current.ShowSuggestions && host.Children.Count == 0 && host.Visibility != Visibility.Visible,
+            "Preferences 'Show suggestions' off hides all bars");
+        var on = AppSettings.Current.Clone();
+        on.ShowSuggestions = true;
+        AppSettings.Apply(on);
+        WaitFor(() => Bars().Count > 0);
+        Check(Bars().Contains(SuggestionIds.PasswordProtected), "switching it back on shows the bars again");
+    }
+
     void PreferencesTest()
     {
         Console.WriteLine("[1] Preferences dialog");
@@ -551,7 +651,7 @@ int RunAll()
         }
 
         Walk(prefs);
-        Check(boxes.Count == 10, $"dialog shows 10 checkboxes (found {boxes.Count})");
+        Check(boxes.Count == 11, $"dialog shows 11 checkboxes (found {boxes.Count})");
         boxes.First(b => b.Name == "WheelZoom").IsChecked = true;
         boxes.First(b => b.Name == "SingleKey").IsChecked = true;
         boxes.First(b => b.Name == "HideWarnings").IsChecked = true;
