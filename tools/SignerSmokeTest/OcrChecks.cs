@@ -351,12 +351,12 @@ internal static class OcrChecks
                 new OcrOptions { Languages = ["hin", "eng"], LanguageFolders = [OcrLanguages.ProgramFolder, packs] });
             var text = Text(output);
             Console.WriteLine($"    {result.Words} words, confidence {result.MeanConfidence:0}%: " + text.Replace("\n", " | ").Trim());
-            foreach (var word in new[] { "भारत", "सरकार", "नगर", "Invoice" })
+            foreach (var word in new[] { "\u092D\u093E\u0930\u0924", "\u0938\u0930\u0915\u093E\u0930", "\u0928\u0917\u0930", "Invoice" })
                 Check(text.Contains(word), $"hindi: '{word}' not found in the text layer");
             // Search and copy use the program's own line reading (glyph by glyph), not iText's extractor.
             var lines = PdfTextSearch.ExtractText(output);
             Console.WriteLine("    as search sees it: " + lines.Replace("\n", " | "));
-            var hits = PdfTextSearch.Search(output, "सरकार");
+            var hits = PdfTextSearch.Search(output, "\u0938\u0930\u0915\u093E\u0930");
             Check(hits.Count >= 1, "hindi: searching for a Devanagari word found nothing");
         });
 
@@ -397,9 +397,9 @@ internal static class OcrChecks
         var font = PdfFontFactory.CreateTtcFont(Path.Combine(fonts, "Nirmala.ttc"), 0, "Identity-H",
             PdfFontFactory.EmbeddingStrategy.PREFER_EMBEDDED, false);
         // Words without conjuncts or the i-sign, so they print correctly without a text shaper.
-        document.Add(new Paragraph("भारत सरकार").SetFont(font).SetFontSize(28));
-        document.Add(new Paragraph("नगर कमल जनता पानी").SetFont(font).SetFontSize(28));
-        document.Add(new Paragraph("समाचार काम घर").SetFont(font).SetFontSize(28));
+        document.Add(new Paragraph("\u092D\u093E\u0930\u0924 \u0938\u0930\u0915\u093E\u0930").SetFont(font).SetFontSize(28));
+        document.Add(new Paragraph("\u0928\u0917\u0930 \u0915\u092E\u0932 \u091C\u0928\u0924\u093E \u092A\u093E\u0928\u0940").SetFont(font).SetFontSize(28));
+        document.Add(new Paragraph("\u0938\u092E\u093E\u091A\u093E\u0930 \u0915\u093E\u092E \u0918\u0930").SetFont(font).SetFontSize(28));
         document.Add(new Paragraph("Invoice number 4711").SetFontSize(20));
         document.Close();
     }
