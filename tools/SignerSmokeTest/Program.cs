@@ -144,6 +144,10 @@ if (!runResult.Aborted) PrintAndKeepChecks.Run(workFolder, failures);
 
 if (!runResult.Aborted) SignatureVerifyChecks.Run(workFolder, signedPdf, failures);
 
+// ---- 46 and up. Document advisor (suggestion bars) ------------------------------------
+
+if (!runResult.Aborted) AdvisorChecks.Run(workFolder, sourcePdf, signedPdf, failures);
+
 // ---- Result ------------------------------------------------------------------
 
 Console.WriteLine();

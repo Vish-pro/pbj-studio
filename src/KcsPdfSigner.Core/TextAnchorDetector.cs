@@ -11,6 +11,14 @@ namespace KcsPdfSigner.Core;
 public static class TextAnchorDetector
 {
     public static List<SignaturePlacement> Detect(PdfDocument document, DetectionSettings settings)
+        => Detect(document, settings, (page, _) => PageTextLayout.ReadLines(page));
+
+    /// <summary>
+    /// Same as <see cref="Detect(PdfDocument, DetectionSettings)"/>, with the lines of each page supplied
+    /// by the caller (the document advisor reads each page once for several checks).
+    /// </summary>
+    internal static List<SignaturePlacement> Detect(
+        PdfDocument document, DetectionSettings settings, Func<PdfPage, int, List<PageTextLayout.TextLine>> readLines)
     {
         var matchers = BuildMatchers(settings);
         if (matchers.Count == 0) return [];
@@ -24,7 +32,7 @@ public static class TextAnchorDetector
             var page = document.GetPage(pageNumber);
             var info = PageGeometry.Describe(page, pageNumber);
 
-            foreach (var line in PageTextLayout.ReadLines(page))
+            foreach (var line in readLines(page, pageNumber))
             {
                 foreach (var matcher in matchers)
                 {

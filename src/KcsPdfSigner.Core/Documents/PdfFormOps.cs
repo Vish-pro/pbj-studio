@@ -30,6 +30,11 @@ public static class PdfFormOps
     public static List<FormFieldInfo> ReadFields(string path, string? password = null)
     {
         using var document = PdfIo.OpenRead(path, password);
+        return ReadFields(document);
+    }
+
+    internal static List<FormFieldInfo> ReadFields(PdfDocument document)
+    {
         var form = PdfFormCreator.GetAcroForm(document, false);
         if (form is null) return [];
 
