@@ -7,6 +7,8 @@
 | Splash generator | `brand/generator/splashgen-v6/splash_v6.py` | To change the start-up animation: `python -I splash_v6.py` writes `splash-v6.mp4` and `splash-v6.zip` (copy the zip to `src/.../Assets/splash.zip`). About 4 minutes. |
 | UI smoke test | `tools/UiSmokeTest` | After any change to the App (Preferences, tools, viewer). Run the engine smoke test first. `dotnet run --project tools/UiSmokeTest/UiSmokeTest.csproj`; prints PASS/FAIL per check. |
 | Smoke test | `tools/SignerSmokeTest` | After any change to `src/KcsPdfSigner.Core` (signing engine or document operations), and before a release. Needs no DSC token. |
+| Document advisor (suggestion bars) | `src/KcsPdfSigner.Core/Documents/DocumentAdvisor.cs`, `PdfSanitizeOps.cs`; App: `MainWindow.Suggestions.cs`, `Suggestions/` | Reads a PDF once and returns the suggestions shown as bars under the toolbar (ids in `SuggestionIds`). To add a bar for a new feature, implement `ISuggestionProvider` and register it in `SuggestionRegistry` (see the comment in `Suggestions/ISuggestionProvider.cs`); the framework is not touched. Checks 46-55 (engine) and [8] (UI). |
+| OCR hook | `Suggestions/ISuggestionProvider.cs` (`OcrSuggestionProvider`) | Scans are already detected (`DocumentAdvisor.DetectScanned`, `DocumentAnalysis.Scan`). The "Make it searchable (OCR)?" bar appears by itself once a tool panel titled "OCR" is added to `ToolRegistry`. Image-only sideways pages: an OCR provider reads `Analysis.Scan.ScannedPages` and straightens with `DocumentAdvisor.StraightenPages`. |
 
 ## Smoke test
 

@@ -112,6 +112,32 @@ without you asking.
 Good to know: revocation is checked online only when the certificate names a revocation service; offline it says
 "revocation not checked". Revocation data embedded in a signature (LTV) is not evaluated.
 
+## Suggestions
+
+When the open PDF matches one of the situations below, a thin bar appears under the toolbar with one
+message and one button (at most two bars at once). **Dismiss** hides it for that document until you close
+the app; **Don't show this again** hides that kind of bar for every document. To turn all of them off,
+untick **Show suggestions** in Preferences (Ctrl+K); **Reset suggestions** there brings hidden ones back.
+
+| Bar | When it appears | The button |
+|---|---|---|
+| Password protected | You opened the PDF with its password. | Save a copy without password (asks you to type REMOVE PASSWORD; the original stays protected). |
+| File is large | The file is larger than 5 MB (change the size in Preferences). | Opens Export, where Optimize shows the size before and after (Ctrl+Z undoes it). |
+| Signature spots | An unsigned, unprotected PDF has phrases like "Authorised Signatory", "Partner", "Proprietor" or "Membership No". | Opens Multi-Sign (DSC) with those spots found, ready to review and sign. |
+| Hidden information | The file names an author, has comments with author names, or carries attached files. | Lists exactly what will be removed (document details, XMP metadata, comment author names), asks separately about attachments, and removes it. Ctrl+Z undoes it. Nothing on the pages changes. |
+| Owner restrictions | The owner has locked printing, copying, editing, comments, forms or page changes. | Information only. |
+| Sideways pages | The text on a page runs sideways or upside down. | Turns those pages upright in one step (Ctrl+Z undoes it). |
+| Damaged file | The file had a broken structure that was repaired while opening. | Rewrites it cleanly, then Save As to a new name. |
+| Fillable form | The PDF has form fields to fill in (signature fields alone do not count). | Opens Fill Forms. |
+| After merging | A PDF you just made with Multiple PDFs or Combine Files opens. | Opens Edit with "Page numbers" ticked: press "Add to every page". |
+| Ready to send | A PDF you just signed with Multi-Sign opens. | Send check: signatures valid or intact, boxes print, file size, no password, not damaged, who signed. It ends with "Looks good to send" or "Check the items marked !". |
+
+What the suggestions cannot see: signature spots and sideways pages are found from the text, so a scanned
+page (a picture) is not checked; scans are recognised, but the "make it searchable (OCR)" bar only appears once
+an OCR tool is added to the app. Hidden information does not cover names typed on the pages or form entries.
+The bars are checked again after every change; the after-merging and ready-to-send bars only show for the
+file exactly as the tool produced it.
+
 ## Preferences (Ctrl+K)
 
 Open **Edit > Preferences** or press Ctrl+K. Everything here takes effect as soon as you press OK.
@@ -129,6 +155,7 @@ Open **Edit > Preferences** or press Ctrl+K. Everything here takes effect as soo
 | Touch mode | Auto, always on (125% larger interface) or off. Menus keep their normal size. |
 | Scale for screen | Auto follows the Windows display scale; "No scaling" draws the interface at 100%. |
 | Do not show edit warnings | Skips the question before redacting or flattening a form. Untick it (Reset all warnings) to see them again. |
+| Show suggestions | Turns the suggestion bars (below) on or off. "Suggest a smaller file above ... MB" sets the size for the file-size bar (default 5 MB). "Reset suggestions" brings back the ones you hid with "Don't show this again". |
 
 **Select tool (V):** drag over text; the selected lines are shaded. Ctrl+C copies, or use the quick actions.
 **Snapshot tool (G):** drag an area; it is copied to the clipboard as a picture, ready to paste.
