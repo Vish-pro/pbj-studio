@@ -22,6 +22,14 @@ Copyright (c) 2026 truevith.space and vistaar.space. All rights reserved.
    In no event shall the author, truevith.space or vistaar.space be liable for any claim, damages,
    data loss or other liability arising from the use of, or inability to use, the software.
 
+6. Third-party components
+   The OCR tool (text recognition for scanned PDFs) uses the Tesseract OCR engine and its language
+   data (Apache License 2.0), the Leptonica image library (BSD 2-clause) and the Tesseract for .NET
+   wrapper (Apache License 2.0). These components keep their own licences, which are not changed by
+   this licence; their notices and full licence texts are installed in the "licenses" folder of the
+   program (Tesseract-NOTICE.txt). The signature font fallback Source Sans 3 is under the SIL Open
+   Font License 1.1 (SourceSans3-OFL.txt in the same folder).
+
 By installing or using the software you agree to these terms.
 
 https://www.vistaar.space/

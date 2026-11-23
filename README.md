@@ -51,6 +51,7 @@ The program works on a private copy. Your original file is not changed until you
 | **Redact** | Permanently remove content (the text is removed, not just covered). |
 | **Protect** | Add or remove a password (AES-256) and set permissions. |
 | **Export** | Pages to images, text, or a smaller optimised PDF. |
+| **OCR** | Make a scanned PDF searchable: adds an invisible text layer (English, plus Indian languages you add). See below. |
 | **Properties, Search, Read Aloud** | Document details, find text, and have a page read out. |
 
 ## Pick pages from several PDFs (Multiple PDFs)
@@ -72,6 +73,48 @@ page 9 of another, and a covering letter.
 
 Your original PDFs are never changed. Large PDFs stay quick because thumbnails are drawn only for the pages you are
 looking at.
+
+## Make a scanned PDF searchable (OCR)
+
+A scanned PDF is a set of pictures: you cannot search it or copy its text. OCR (text recognition) reads the
+pictures and puts an invisible layer of text on top. The pages look exactly the same, but Search (Ctrl+F),
+selecting and copying now work. Everything runs on your PC; nothing is uploaded.
+
+1. Open the scanned PDF. A bar usually says **This looks like a scan... Make it searchable (OCR)?**; click
+   **Make searchable (OCR)...**, or open **OCR** in the tools pane (or Tools > OCR).
+2. Choose the pages: **All pages**, **Current page**, or **Pages** such as `1-3, 5`.
+3. Tick the languages the pages are written in. English is ticked at first; you can tick several together,
+   for example Hindi and English.
+4. Keep **Skip pages that already have text** ticked (typed pages and pages made searchable before are left alone).
+5. Click **Make searchable**. A bar shows "Page 3 of 40"; **Cancel** stops after the current page and changes
+   nothing. Each page takes one to three seconds. When it finishes, the panel says how many pages were read and
+   how sure the program is. **Save** to keep it; Ctrl+Z undoes it.
+
+Pages that were scanned sideways or upside down are read the right way up. A bar then offers to turn the pages
+themselves (**N scanned pages look sideways or upside down. Straighten them?**); Ctrl+Z undoes that too.
+
+**Languages.** English always comes with PB&J Studio. While installing you can choose **Choose scan languages**
+and tick Hindi, Kannada, Marathi, Tamil, Telugu, Malayalam, Gujarati, Bengali, Punjabi or Urdu (0.5 to 5 MB each),
+or keep **Skip for now (English only)**. To add one later: OCR tool > **Languages...** > **Add**. The program shows
+the exact download address (the official Tesseract project on github.com) and size, asks first, downloads it, and
+checks it before use. **Remove** takes away a language you added.
+
+**PC without internet.** On a PC with internet, download the file shown in the Add message (for example
+`hin.traineddata`), copy it over (USB stick), and use **Languages... > Add from a file...**. The file is checked
+the same way; a wrong or damaged file is refused.
+
+**What OCR cannot do well.** Clean printed pages scanned at 300 dpi read well. Handwriting, faint or blurred
+phone photos, crooked pages, stamps and seals, signatures, and text in tables or over pictures read poorly or not
+at all. Always check names, amounts and dates before you rely on them. English was tested on clean sample scans;
+of the Indian languages only Hindi was tried (a clean sample page with Hindi and English, where 10 of 12 words came
+out right); the others come from the same official source but have not been tested here.
+
+OCR needs the free Microsoft Visual C++ Redistributable (x64), which most Windows PCs already have. If it is
+missing, the OCR tool says so and tells you where to get it.
+
+A PDF with a password can be made searchable only when you opened it with its owner password (the one that allows
+changes), like any other change in the program. On a digitally signed PDF the program warns you first, because
+adding text breaks the signatures.
 
 ## Sign a PDF at many places
 
@@ -127,14 +170,16 @@ untick **Show suggestions** in Preferences (Ctrl+K); **Reset suggestions** there
 | Hidden information | The file names an author, has comments with author names, or carries attached files. | Lists exactly what will be removed (document details, XMP metadata, comment author names), asks separately about attachments, and removes it. Ctrl+Z undoes it. Nothing on the pages changes. |
 | Owner restrictions | The owner has locked printing, copying, editing, comments, forms or page changes. | Information only. |
 | Sideways pages | The text on a page runs sideways or upside down. | Turns those pages upright in one step (Ctrl+Z undoes it). |
+| Scan | Most pages are pictures without text (a scan). | Opens the OCR tool to make it searchable. |
+| Sideways scanned pages | Picture pages whose orientation the OCR engine reads, with high confidence, as sideways or upside down (checked in the background for up to 60 pages). | Turns those pages upright in one step (Ctrl+Z undoes it). |
 | Damaged file | The file had a broken structure that was repaired while opening. | Rewrites it cleanly, then Save As to a new name. |
 | Fillable form | The PDF has form fields to fill in (signature fields alone do not count). | Opens Fill Forms. |
 | After merging | A PDF you just made with Multiple PDFs or Combine Files opens. | Opens Edit with "Page numbers" ticked: press "Add to every page". |
 | Ready to send | A PDF you just signed with Multi-Sign opens. | Send check: signatures valid or intact, boxes print, file size, no password, not damaged, who signed. It ends with "Looks good to send" or "Check the items marked !". |
 
-What the suggestions cannot see: signature spots and sideways pages are found from the text, so a scanned
-page (a picture) is not checked; scans are recognised, but the "make it searchable (OCR)" bar only appears once
-an OCR tool is added to the app. Hidden information does not cover names typed on the pages or form entries.
+What the suggestions cannot see: signature spots are found from the text, so they are not found on a scanned
+page (a picture) until it has been made searchable. Sideways scanned pages are found only when the page has
+enough printed text for the OCR engine to be sure; a photo or a nearly empty page is never flagged. Hidden information does not cover names typed on the pages or form entries.
 On a PDF whose owner has restricted it, bars that would change the file are not offered (it cannot be
 changed without the owner password). The bars are checked again after every change; the after-merging and ready-to-send bars only show for the
 file exactly as the tool produced it.
@@ -280,6 +325,18 @@ install is not in `D:\dotnet`):
 dotnet publish src/KcsPdfSigner.App/KcsPdfSigner.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:Obfuscate=true -o release
 ```
 
+The publish also writes `release\x64\` (the Tesseract and Leptonica OCR engine DLLs) and `release\tessdata\`
+next to the exe; the installer ships `x64\` from there. Fetch the OCR language files once (they are not in git):
+
+```bash
+powershell -ExecutionPolicy Bypass -File packaging/fetch-ocr-languages.ps1
+```
+
+It downloads English, orientation detection and the ten Indian languages from tessdata_fast into
+`packaging/ocr-languages/` and checks each against the SHA-256 pinned in the script (the same values as
+`Core/Documents/OcrLanguages.cs`). English and orientation are required; a missing Indian language is simply left
+out of the installer's "Scan languages (OCR)" page.
+
 Build the installer with [Inno Setup 6](https://jrsoftware.org/isinfo.php):
 
 ```bash
@@ -292,6 +349,10 @@ commit it. To change the version, edit `Version` in `KcsPdfSigner.App.csproj` an
 ## Credits
 
 Signature font fallback: Source Sans 3 by Adobe, SIL Open Font License 1.1 (see `docs/licenses/SourceSans3-OFL.txt`).
+
+OCR: Tesseract OCR engine and its tessdata_fast language data (Apache License 2.0), Leptonica (BSD 2-clause) and the
+Tesseract for .NET wrapper by Charles Weld (Apache License 2.0); see `docs/licenses/Tesseract-NOTICE.txt`, which the
+installer also places in the program's `licenses` folder.
 
 
 Built by truevith.space and vistaar.space. Source code is released under the [MIT licence](LICENSE); the installer carries its own freeware licence.
