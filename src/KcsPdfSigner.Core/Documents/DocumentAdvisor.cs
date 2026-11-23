@@ -222,7 +222,11 @@ public static class DocumentAdvisor
         var list = new List<DocumentFinding>();
         if (!string.IsNullOrEmpty(a.Error)) return list;
 
-        if (a.StructureRepaired)
+        // An owner-restricted file cannot be rewritten without its owner password, so suggestions whose
+        // button changes the file are not offered; the restrictions bar explains why.
+        var canChange = a.Permissions?.IsRestricted != true;
+
+        if (a.StructureRepaired && canChange)
         {
             list.Add(new DocumentFinding
             {
@@ -252,7 +256,7 @@ public static class DocumentAdvisor
             });
         }
 
-        if (a.SidewaysPages.Count > 0)
+        if (a.SidewaysPages.Count > 0 && canChange)
         {
             var n = a.SidewaysPages.Count;
             list.Add(new DocumentFinding
@@ -282,7 +286,7 @@ public static class DocumentAdvisor
             });
         }
 
-        if (a.FillableFieldCount > 0 && a.SignatureCount == 0)
+        if (a.FillableFieldCount > 0 && a.SignatureCount == 0 && canChange)
         {
             list.Add(new DocumentFinding
             {
@@ -336,7 +340,7 @@ public static class DocumentAdvisor
             });
         }
 
-        if (a.HiddenInfo.HasPersonalInfo)
+        if (a.HiddenInfo.HasPersonalInfo && canChange)
         {
             list.Add(new DocumentFinding
             {

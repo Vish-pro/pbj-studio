@@ -56,6 +56,14 @@ internal static class AdvisorChecks
             Show("locked.pdf (owner password)", withOwner);
             Check(!Has(withOwner, SuggestionIds.OwnerRestrictions), "advisor: owner password should lift the restrictions bar");
 
+            // A restricted file cannot be rewritten without the owner password: no bar whose button would fail.
+            var rewriteFails = false;
+            try { PdfSanitizeOps.RemoveHiddenInfo(locked, F("locked-clean.pdf"), "u123"); }
+            catch { rewriteFails = true; }
+            Console.WriteLine($"    rewrite with the user password fails: {rewriteFails}");
+            Check(!Has(withUser, SuggestionIds.HiddenInfo) && Has(withOwner, SuggestionIds.HiddenInfo),
+                "advisor: hidden-info should be offered only when the file can be changed (owner password)");
+
             var plain = DocumentAdvisor.Analyze(D("three-pages.pdf"), null);
             Check(!Has(plain, SuggestionIds.PasswordProtected) && !Has(plain, SuggestionIds.OwnerRestrictions),
                 "advisor: unprotected file reported as protected");

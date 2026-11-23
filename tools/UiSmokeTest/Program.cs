@@ -561,6 +561,17 @@ int RunAll()
         Check(window.VisibleSuggestions.Any(s => s.Id == SuggestionIds.SigningSpots && s.Message.StartsWith("Found 4 places")),
             "unsigned.pdf shows 'Found 4 places that look like signature spots'");
         Check(!Bars().Contains(SuggestionIds.PasswordProtected), "the password bar of the other tab is not shown here");
+        var toolPane = (ContentControl)LogicalTreeHelper.FindLogicalNode(window, "ToolHost");
+        Wait(window.VisibleSuggestions.First(s => s.Id == SuggestionIds.SigningSpots).Run!());
+        PumpNow(300);
+        Check(toolPane.Content is KcsPdfSigner.App.Tools.MultiSignPanel signPanel && signPanel.ViewModel.Placements.Count == 4,
+            "'Sign with DSC' opens Multi-Sign with the 4 spots detected");
+
+        Select("form.pdf");
+        WaitFor(() => Bars().Contains(SuggestionIds.FillableForm));
+        Check(Bars().Contains(SuggestionIds.FillableForm), "form.pdf shows 'This is a fillable form (3 fields)'");
+        Wait(window.VisibleSuggestions.First(s => s.Id == SuggestionIds.FillableForm).Run!());
+        Check(toolPane.Content is KcsPdfSigner.App.Tools.FormsPanel, "'Fill in form' opens Fill Forms");
 
         // Big file: lower the threshold below the 300-page file's size (about 180 KB).
         var bigPath = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "advisor", "300-pages.pdf");
@@ -573,6 +584,8 @@ int RunAll()
         Check(window.VisibleSuggestions.Any(s => s.Id == SuggestionIds.LargeFile && s.Message.StartsWith("This file is 0.17 MB")),
             "big file (threshold lowered to 0.1 MB) shows 'Reduce the file size?'");
         Check(host.Children.Count == 2, $"two bars when two suggestions apply ({host.Children.Count})");
+        Wait(window.VisibleSuggestions.First(s => s.Id == SuggestionIds.LargeFile).Run!());
+        Check(toolPane.Content is KcsPdfSigner.App.Tools.ExportPanel, "'Reduce size' opens Export (Optimize)");
 
         // Dismiss: hidden for this document only.
         Select("unsigned.pdf");
