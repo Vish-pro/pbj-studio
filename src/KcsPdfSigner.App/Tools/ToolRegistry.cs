@@ -2,7 +2,7 @@ namespace KcsPdfSigner.App.Tools;
 
 /// <summary>
 /// The single registration point for tool panels. Order here is the order in the tools pane and the
-/// Tools menu. The first entry is shown as the primary (inverted) tool and opens at start-up.
+/// Tools menu. The first entry is shown as the primary (inverted) tool. No tool opens at start-up.
 /// </summary>
 public static class ToolRegistry
 {

@@ -125,8 +125,8 @@ public partial class MainWindow : Window, IStudioHost
         BuildRecentMenu();
         UpdateChrome();
 
-        // The signing tool is the star feature: it is open from the start.
-        if (_tools.Count > 0) OpenToolEntry(_tools[0]);
+        // No tool is open at start-up: the tools list is shown, and the user picks one
+        // (Multi-Sign is still the first, highlighted entry).
     }
 
     // ======================================================================
