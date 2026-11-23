@@ -97,6 +97,12 @@ public static class PdfOcrOps
     /// </summary>
     public const double SidewaysSuggestionConfidence = 6.0;
 
+    /// <summary>
+    /// A page turned for reading that reads with a mean confidence below this is also read as it is;
+    /// the better reading is kept (a safety net against a wrong orientation).
+    /// </summary>
+    public const float SecondOpinionConfidence = 0.6f;
+
     private static readonly object EngineSetupLock = new();
     private static bool _searchPathSet;
 
@@ -277,50 +283,46 @@ public static class PdfOcrOps
                     cancellationToken.ThrowIfCancellationRequested();
 
                     // Picture pages only: a page with real text shows its direction in that text.
-                    var turn = 0;
+                    PageOrientation? orientation = null;
                     if (osd is not null && chars[number - 1] <= TextCharsThreshold)
                     {
-                        var orientation = DetectOrientation(osd, pix, number);
-                        if (orientation.TurnClockwise != 0 && orientation.Confidence >= TurnForReadingConfidence)
-                        {
-                            turn = orientation.TurnClockwise;
-                            result.TurnedForReading.Add(orientation);
-                        }
+                        var found = DetectOrientation(osd, pix, number);
+                        if (found.TurnClockwise != 0 && found.Confidence >= TurnForReadingConfidence) orientation = found;
                     }
 
-                    using var upright = turn == 0 ? pix.Clone() : Turn(pix, turn);
-                    upright.XRes = dpi;
-                    upright.YRes = dpi;
-
-                    var layerBase = Path.Combine(work, "layer-" + number);
-                    int words;
-                    float confidence;
-                    using (var renderer = ResultRenderer.CreatePdfRenderer(layerBase, tessdata, true))
+                    var turn = orientation?.TurnClockwise ?? 0;
+                    var read = ReadPage(engine, pix, dpi, turn, tessdata, Path.Combine(work, $"layer-{number}-{turn}"));
+                    if (turn != 0 && read.Confidence < SecondOpinionConfidence)
                     {
-                        using (renderer.BeginDocument("OCR"))
-                        using (var ocr = engine.Process(upright))
+                        // A doubtful turn: read the page as it is too, and keep whichever reads better.
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var asIs = ReadPage(engine, pix, dpi, 0, tessdata, Path.Combine(work, $"layer-{number}-0"));
+                        if (asIs.Words > 0 && asIs.Confidence > read.Confidence)
                         {
-                            var text = ocr.GetText() ?? "";
-                            words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
-                            confidence = ocr.GetMeanConfidence();
-                            renderer.AddPage(ocr);
+                            TryDelete(read.File);
+                            read = asIs;
+                            turn = 0;
+                        }
+                        else
+                        {
+                            TryDelete(asIs.File);
                         }
                     }
 
-                    var layerFile = layerBase + ".pdf";
-                    if (words == 0)
+                    if (turn != 0) result.TurnedForReading.Add(orientation!);
+                    if (read.Words == 0)
                     {
                         result.PagesWithoutText.Add(number);
                     }
                     else
                     {
-                        DrawLayer(document, page, layerFile, turn);
+                        DrawLayer(document, page, read.File, turn);
                         result.PagesRead.Add(number);
-                        result.Words += words;
-                        confidenceSum += confidence * 100;
+                        result.Words += read.Words;
+                        confidenceSum += read.Confidence * 100;
                     }
 
-                    TryDelete(layerFile);
+                    TryDelete(read.File);
                     progress?.Report(new OcrProgress(i + 1, pages.Count, number));
                 }
 
@@ -340,6 +342,35 @@ public static class PdfOcrOps
 
         result.Elapsed = timer.Elapsed;
         return result;
+    }
+
+    /// <summary>
+    /// Reads one page picture (turned <paramref name="turn"/> degrees clockwise first) and writes Tesseract's
+    /// one-page text-only PDF to <paramref name="layerBase"/>.pdf. Returns the word count and Tesseract's
+    /// mean word confidence (0 to 1).
+    /// </summary>
+    private static (int Words, float Confidence, string File) ReadPage(
+        TesseractEngine engine, Pix pix, int dpi, int turn, string tessdata, string layerBase)
+    {
+        using var picture = turn == 0 ? pix.Clone() : Turn(pix, turn);
+        picture.XRes = dpi;
+        picture.YRes = dpi;
+
+        int words;
+        float confidence;
+        using (var renderer = ResultRenderer.CreatePdfRenderer(layerBase, tessdata, true))
+        {
+            using (renderer.BeginDocument("OCR"))
+            using (var ocr = engine.Process(picture))
+            {
+                var text = ocr.GetText() ?? "";
+                words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+                confidence = ocr.GetMeanConfidence();
+                renderer.AddPage(ocr);
+            }
+        }
+
+        return (words, confidence, layerBase + ".pdf");
     }
 
     // ---- Orientation ---------------------------------------------------------
