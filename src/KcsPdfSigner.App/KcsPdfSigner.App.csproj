@@ -23,7 +23,7 @@
     <AssemblyName>PBJStudio</AssemblyName>
     <RootNamespace>KcsPdfSigner.App</RootNamespace>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <Product>PB&amp;J Studio</Product>
     <Company>truevith.space and vistaar.space</Company>
     <Authors>truevith.space and vistaar.space</Authors>

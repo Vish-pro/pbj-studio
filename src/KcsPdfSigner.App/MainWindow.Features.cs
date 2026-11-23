@@ -69,6 +69,21 @@ public partial class MainWindow
         Deactivated += (_, _) => HideQuickActions();
     }
 
+    /// <summary>The "Built by vistaar.space" link in the status bar opens in the default browser.</summary>
+    private void OnBuiltByNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        e.Handled = true;
+        try
+        {
+            Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            App.LogError("Opening vistaar.space", ex);
+            SetStatus("Could not open the browser. Go to vistaar.space yourself.");
+        }
+    }
+
     // ======================================================================
     // Preferences, session restore, close prompt
     // ======================================================================

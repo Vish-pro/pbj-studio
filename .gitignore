@@ -17,3 +17,5 @@ dist/
 PLAN.md
 brand/splash-v6.*
 brand/logo-source/app-old-backup.ico
+
+packaging/guide/node_modules/

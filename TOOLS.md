@@ -29,3 +29,5 @@ of the app:
 
 The app should stay open and responsive, and `%APPDATA%\KcsPdfStudio\error.log` should gain no new
 entries.
+
+- **User guide PDF** - `node packaging/guide/build-guide.mjs` builds `dist/User-Guide.pdf` from README Part 1 (Edge headless; run `npm i` once in `packaging/guide`). Copy the PDF to truevith-space `public/pbj/downloads/`.

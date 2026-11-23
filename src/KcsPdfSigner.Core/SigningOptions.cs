@@ -103,6 +103,13 @@ public sealed class SigningOptions
 
     public string ContactInfo { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Sign a PDF that its owner protected with a permissions password but that allows signing
+    /// (the same permission Acrobat checks). The file stays encrypted and the owner's other
+    /// restrictions stay in place. The caller must have warned the user.
+    /// </summary>
+    public bool AllowRestrictedSigning { get; set; }
+
     /// <summary>Draw the signer's name and date inside each signature widget.</summary>
     public bool VisibleAppearance { get; set; } = true;
 

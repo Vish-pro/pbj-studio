@@ -20,7 +20,7 @@ Black-and-white interface. All code and icons are original.
 
 ## Install
 
-1. Download `PBJStudio-Setup-1.2.0.exe` from the **Releases** page of this repository.
+1. Download `PBJStudio-Setup-1.3.0.exe` from the **Releases** page of this repository.
 2. Your browser may warn that the file "isn't commonly downloaded". This is normal for new free software
    without a paid code-signing certificate. In **Edge**: open Downloads (Ctrl+J), click the **...** next to the
    file, choose **Keep**, then **Show more** > **Keep anyway**. In **Chrome**: click the warning, then **Keep**.
@@ -229,7 +229,7 @@ Build the installer with [Inno Setup 6](https://jrsoftware.org/isinfo.php):
 ISCC.exe packaging/setup.iss
 ```
 
-The installer is written to `dist/PBJStudio-Setup-1.2.0.exe`. Upload it to a GitHub Release; do not
+The installer is written to `dist/PBJStudio-Setup-1.3.0.exe`. Upload it to a GitHub Release; do not
 commit it. To change the version, edit `Version` in `KcsPdfSigner.App.csproj` and `AppVersion` in `setup.iss`.
 
 ## Credits

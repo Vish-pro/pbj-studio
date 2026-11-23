@@ -126,10 +126,10 @@ string MakeSample(string folder, string name, string title, int pages)
         doc.Add(new Paragraph(title).SetFontSize(20).SetFont(iText.Kernel.Font.PdfFontFactory.CreateFont(iText.IO.Font.Constants.StandardFonts.HELVETICA_BOLD)));
         doc.Add(new Paragraph($"Page {page} of {pages}").SetFontSize(10).SetMarginBottom(18));
         for (var i = 0; i < 9; i++)
-            doc.Add(new Paragraph("The quarterly figures were reviewed against the books of account and the supporting vouchers. " +
-                                  "Differences were discussed with the management and are listed in the annexure.").SetFontSize(11).SetMarginBottom(8));
-        doc.Add(new Paragraph("For Sample & Associates").SetFontSize(11).SetMarginTop(30));
-        doc.Add(new Paragraph("Partner").SetFontSize(11));
+            doc.Add(new Paragraph("This is a sample paragraph used to show how PB&J Studio displays a document. " +
+                                  "Replace it with your own text, pages and signatures.").SetFontSize(11).SetMarginBottom(8));
+        doc.Add(new Paragraph("Sample Company").SetFontSize(11).SetMarginTop(30));
+        doc.Add(new Paragraph("Authorised Signatory").SetFontSize(11));
     }
 
     doc.Close();
@@ -188,9 +188,9 @@ int RunShots(string outDir)
     if (Directory.Exists(work)) Directory.Delete(work, true);
     Directory.CreateDirectory(work);
 
-    var report = MakeSample(work, "Audit Report.pdf", "Independent Auditor's Report", 4);
-    var statement = MakeSample(work, "Bank Statement.pdf", "Bank Statement", 3);
-    var letter = MakeSample(work, "Covering Letter.pdf", "Covering Letter", 1);
+    var report = MakeSample(work, "Project Report.pdf", "Project Report", 4);
+    var statement = MakeSample(work, "Invoice.pdf", "Invoice", 3);
+    var letter = MakeSample(work, "Cover Letter.pdf", "Cover Letter", 1);
 
     var app = new App();
     app.InitializeComponent();
@@ -201,6 +201,9 @@ int RunShots(string outDir)
     window.Show();
     window.OpenFile(report);
     PumpNow(5000);
+    // Show Organize Pages (never Multi-Sign: it lists the PC's real certificates, which must not appear on the website).
+    window.OpenTool("Organize Pages");
+    PumpNow(2500);
     SaveWindow(window, Path.Combine(outDir, "main-window.png"));
 
     // Multiple PDFs: add three files, put pages from each in the new PDF, then show it.
@@ -345,6 +348,10 @@ int RunAll()
     Check(linkViewer.InteractionMode == InteractionMode.Browse, "hand tool restores browse mode");
 
     Console.WriteLine("[3] Session list and display settings");
+    var builtBy = Get<TextBlock>(window, "BuiltByStatus");
+    var builtByLink = builtBy.Inlines.OfType<System.Windows.Documents.Hyperlink>().FirstOrDefault();
+    Check(builtByLink is not null && builtByLink.NavigateUri?.Host.EndsWith("vistaar.space") == true,
+        "footer 'vistaar.space' is a hyperlink to vistaar.space");
     Method("RememberSession").Invoke(window, null);
     Check(AppSettings.Current.LastSession.Count == 2, "open documents are remembered for the next start");
 

@@ -233,7 +233,7 @@
                 </ItemsPanelTemplate>
             </StatusBar.ItemsPanel>
             <StatusBarItem DockPanel.Dock="Right">
-                <TextBlock x:Name="BuiltByStatus" Text="Built by vistaar.space" Opacity="0.7" Margin="12,0,0,0" />
+                <TextBlock x:Name="BuiltByStatus" Opacity="0.85" Margin="12,0,0,0">Built by <Hyperlink NavigateUri="https://www.vistaar.space/" Foreground="{StaticResource Brush.Fg}" ToolTip="Open vistaar.space in your browser" RequestNavigate="OnBuiltByNavigate">vistaar.space</Hyperlink></TextBlock>
             </StatusBarItem>
             <StatusBarItem DockPanel.Dock="Right">
                 <TextBlock x:Name="ZoomStatus" Text="" MinWidth="60" TextAlignment="Right" />

@@ -90,7 +90,7 @@ public sealed class MultiSignatureSigner
         byte[] document;
         try
         {
-            document = PrepareSignatureFields(options.InputPath, targets, results);
+            document = PrepareSignatureFields(options.InputPath, targets, results, options.AllowRestrictedSigning);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -162,7 +162,8 @@ public sealed class MultiSignatureSigner
     /// recording the field name each result will later be signed into.
     /// </summary>
     private static byte[] PrepareSignatureFields(
-        string inputPath, IReadOnlyList<SignaturePlacement> targets, List<PlacementResult> results)
+        string inputPath, IReadOnlyList<SignaturePlacement> targets, List<PlacementResult> results,
+        bool allowRestricted = false)
     {
         using var buffer = new MemoryStream();
 
@@ -171,9 +172,11 @@ public sealed class MultiSignatureSigner
         // Unsigned documents are still rewritten here, which also repairs a slightly damaged file
         // before the signing passes (those always append).
         bool alreadySigned;
-        using (var probe = new PdfDocument(new PdfReader(inputPath)))
+        using (var probe = new PdfDocument(OpenReader(inputPath, allowRestricted)))
         {
             alreadySigned = new SignatureUtil(probe).GetSignatureNames().Count > 0;
+            // A protected file must be appended to, never rewritten: a rewrite would drop its encryption.
+            if (probe.GetReader().IsEncrypted()) alreadySigned = true;
             if (ReadCertificationLevel(probe) == 1)
                 throw new InvalidOperationException(
                     "This PDF was certified by its author with \"no changes allowed\", so any further " +
@@ -183,7 +186,7 @@ public sealed class MultiSignatureSigner
         var stamping = new StampingProperties();
         if (alreadySigned) stamping.UseAppendMode();
 
-        using (var reader = new PdfReader(inputPath))
+        using (var reader = OpenReader(inputPath, allowRestricted))
         using (var writer = new PdfWriter(buffer))
         using (var document = new PdfDocument(reader, writer, stamping))
         {
@@ -240,7 +243,7 @@ public sealed class MultiSignatureSigner
         // One moment for both the signature's /M date and the date drawn in the box.
         var now = DateTimeOffset.Now;
 
-        using (var reader = new PdfReader(input))
+        using (var reader = OpenReader(input, options.AllowRestrictedSigning))
         {
             var signer = new PdfSigner(reader, output, new StampingProperties().UseAppendMode());
             EnsurePrintable(signer.GetDocument(), fieldName);
@@ -439,6 +442,20 @@ public sealed class MultiSignatureSigner
         }
 
         return null;
+    }
+
+    private static PdfReader OpenReader(string path, bool allowRestricted)
+    {
+        var reader = new PdfReader(path);
+        if (allowRestricted) reader.SetUnethicalReading(true); // only after the permission bits were checked
+        return reader;
+    }
+
+    private static PdfReader OpenReader(Stream stream, bool allowRestricted)
+    {
+        var reader = new PdfReader(stream);
+        if (allowRestricted) reader.SetUnethicalReading(true);
+        return reader;
     }
 
     /// <summary>Sets the Print flag on every widget of a signature field.</summary>

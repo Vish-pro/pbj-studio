@@ -287,6 +287,56 @@ internal static class SignatureCompatChecks
                 Check(!File.Exists(output), $"refusal: {Path.GetFileName(file)} left an output file");
             }
         });
+
+        Step("[32] Owner-restricted PDFs that allow signing can be signed, with their restrictions kept", () =>
+        {
+            var allows = F("owner-allows-signing.pdf");
+            PdfSecurityOps.Encrypt(plain, allows, null, "o-allow", allowPrint: false, allowCopy: false, allowModify: true);
+            var report = PdfPermissions.Inspect(allows);
+            Console.WriteLine($"    permissions: restricted={report.IsRestricted} printing={report.AllowsPrinting} signing={report.AllowsSigning}");
+            Check(report.IsRestricted && report.AllowsSigning && !report.AllowsPrinting, "restricted: permission bits read wrongly");
+
+            var refused = F("owner-allows-refused.pdf");
+            var wasRefused = false;
+            try
+            {
+                wasRefused = Sign(signer, allows, refused, [Manual(plain, 1, 72, 400, 170, 52)]).Aborted;
+            }
+            catch (InvalidOperationException)
+            {
+                wasRefused = true;
+            }
+
+            Check(wasRefused && !File.Exists(refused), "restricted: signing must be refused unless the user agreed");
+
+            var signed = F("owner-allows-signed.pdf");
+            var options = new SigningOptions
+            {
+                InputPath = allows, OutputPath = signed, Reason = "Restricted check", Location = "Mangaluru",
+                AllowRestrictedSigning = true
+            };
+            var result = new MultiSignatureSigner(null)
+                .SignAsync(signer, options, [Manual(plain, 1, 72, 400, 170, 52)], null, CancellationToken.None).GetAwaiter().GetResult();
+            Console.WriteLine($"    signed={result.Signed} {string.Join("; ", result.Results.Select(r => r.Message))}");
+            Check(!result.Aborted && File.Exists(signed), "restricted: signing with the user's agreement failed");
+            if (result.Aborted || !File.Exists(signed)) return;
+
+            var after = PdfPermissions.Inspect(signed);
+            Check(after.IsEncrypted && after.IsRestricted && !after.AllowsPrinting, "restricted: the owner's restrictions must still apply to the signed file");
+
+            using var reader = new PdfReader(signed);
+            reader.SetUnethicalReading(true);
+            using var pdf = new PdfDocument(reader);
+            var util = new SignatureUtil(pdf);
+            Check(util.GetSignatureNames().Count == 1, "restricted: expected one signature");
+            Check(util.ReadSignatureData(util.GetSignatureNames()[0]).VerifySignatureIntegrityAndAuthenticity(), "restricted: signature does not verify");
+
+            var noSigning = F("owner-no-signing.pdf");
+            PdfSecurityOps.Encrypt(plain, noSigning, null, "o-no", allowPrint: true, allowCopy: true, allowModify: false);
+            // allowModify=false clears modify, annotations, fill-in and assembly.
+            var blocked = PdfPermissions.Inspect(noSigning);
+            Check(blocked.IsRestricted && !blocked.AllowsSigning, "restricted: a file that forbids modifying must not be reported as signable");
+        });
     }
 
     // ---- helpers ------------------------------------------------------------------------------

@@ -524,6 +524,34 @@ public sealed class MultiSignViewModel : INotifyPropertyChanged
             return;
         }
 
+        // A PDF locked by its owner (permissions password): sign only if the owner allows signing, and only
+        // after the user has been told. The file stays encrypted and the owner's other restrictions stay.
+        Options.AllowRestrictedSigning = false;
+        var permissions = KcsPdfSigner.Core.Documents.PdfPermissions.Inspect(session.CurrentFile);
+        if (permissions.IsRestricted)
+        {
+            if (!permissions.AllowsSigning)
+            {
+                MessageDialog.Show(Owner,
+                    "The owner of this PDF has locked it so that it cannot be modified or signed. " +
+                    "Ask for an unrestricted copy, or use the owner password in Protect to remove the restriction first.",
+                    "Cannot sign", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (MessageDialog.Show(Owner,
+                    "This PDF is protected by its owner with restrictions" +
+                    (permissions.AllowsPrinting ? "." : " (for example, it may not be printed).") +
+                    "\n\nIts permissions allow signing, so PB&J Studio can sign it. The signed copy stays protected " +
+                    "with the same restrictions.\n\nSign it anyway?",
+                    "Protected PDF", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+            {
+                return;
+            }
+
+            Options.AllowRestrictedSigning = true;
+        }
+
         var enabled = Placements.Where(p => p.Enabled).ToList();
 
         var confirmation =
