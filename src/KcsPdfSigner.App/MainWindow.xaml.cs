@@ -695,6 +695,18 @@ public partial class MainWindow : Window, IStudioHost
         var viewer = _active?.Viewer;
         if (viewer?.DocumentBytes is null || _active is null) return;
 
+        // Like Acrobat: a PDF whose owner switched off printing cannot be printed without the owner password.
+        var permissions = KcsPdfSigner.Core.Documents.PdfPermissions.Inspect(_active.Session.CurrentFile, _active.Session.Password);
+        if (permissions.IsRestricted && !permissions.AllowsPrinting)
+        {
+            SetStatus("Printing is not allowed for this PDF.");
+            MessageDialog.Show(this,
+                "The owner of this PDF has not allowed printing.\n\n" +
+                "Ask the owner for a printable copy, or open it with its owner password (Protect > remove the restriction).",
+                "Printing not allowed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         try
         {
             SetStatus("Preparing to print...");
