@@ -19,3 +19,6 @@ brand/splash-v6.*
 brand/logo-source/app-old-backup.ico
 
 packaging/guide/node_modules/
+
+# OCR language files fetched by packaging/fetch-ocr-languages.ps1 (official binaries, never committed)
+packaging/ocr-languages/

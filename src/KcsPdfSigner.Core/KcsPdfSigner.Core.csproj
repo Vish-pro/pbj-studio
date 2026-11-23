@@ -9,6 +9,9 @@
   <ItemGroup>
     <!-- Source Sans 3 (SIL Open Font License, see docs/licenses): the signature look when Myriad Pro is not on the PC. -->
     <EmbeddedResource Include="Fonts\SourceSans3-Regular.otf" LogicalName="SourceSans3-Regular.otf" />
+    <!-- Tesseract's glyphless font (Apache-2.0, see docs/licenses/Tesseract-NOTICE.txt): its text-only
+         PDF renderer reads it as pdf.ttf from the language folder. -->
+    <EmbeddedResource Include="Fonts\GlyphLessFont.ttf" LogicalName="GlyphLessFont.ttf" />
   </ItemGroup>
 
   <ItemGroup>
@@ -17,6 +20,21 @@
     <!-- pdfSweep 5.x ships only a net461 assembly; it runs on .NET 8 (verified by the smoke test). -->
     <PackageReference Include="itext.pdfsweep" Version="5.0.7" NoWarn="NU1701" />
     <PackageReference Include="PDFtoImage" Version="5.3.0" />
+    <!-- OCR: Tesseract 5 wrapper (Apache-2.0). Its own build targets would copy the x86 and x64
+         natives; only the x64 ones are copied, below. -->
+    <PackageReference Include="Tesseract" Version="5.2.0" ExcludeAssets="build" GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Tesseract and Leptonica natives go to x64\ next to the exe; the installer ships them there too. -->
+    <None Include="$(PkgTesseract)\x64\tesseract50.dll" Link="x64\tesseract50.dll" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
+    <None Include="$(PkgTesseract)\x64\leptonica-1.82.0.dll" Link="x64\leptonica-1.82.0.dll" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false" />
+    <!-- English and orientation data for development builds and tests (run packaging\fetch-ocr-languages.ps1
+         once). Not committed; the installer takes them from packaging\ocr-languages. -->
+    <None Include="..\..\packaging\ocr-languages\eng.traineddata" Link="tessdata\eng.traineddata" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false"
+          Condition="Exists('..\..\packaging\ocr-languages\eng.traineddata')" />
+    <None Include="..\..\packaging\ocr-languages\osd.traineddata" Link="tessdata\osd.traineddata" CopyToOutputDirectory="PreserveNewest" ExcludeFromSingleFile="true" Visible="false"
+          Condition="Exists('..\..\packaging\ocr-languages\osd.traineddata')" />
   </ItemGroup>
 
 </Project>

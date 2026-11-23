@@ -148,6 +148,10 @@ if (!runResult.Aborted) SignatureVerifyChecks.Run(workFolder, signedPdf, failure
 
 if (!runResult.Aborted) AdvisorChecks.Run(workFolder, sourcePdf, signedPdf, failures);
 
+// ---- 56 and up. OCR: making scanned PDFs searchable ----------------------------------
+
+OcrChecks.Run(workFolder, failures);
+
 // ---- Result ------------------------------------------------------------------
 
 Console.WriteLine();

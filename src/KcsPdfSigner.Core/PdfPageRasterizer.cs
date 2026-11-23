@@ -12,8 +12,11 @@ public static class PdfPageRasterizer
         byte[] pdfBytes, int pageNumber, int dpi = PreviewDpi, string? password = null)
     {
         using var buffer = new MemoryStream();
-        Conversion.SavePng(buffer, pdfBytes, pageNumber - 1, password,
-            options: new RenderOptions(Dpi: dpi, WithAnnotations: true, WithFormFill: true));
+        lock (PdfiumGate.Sync)
+        {
+            Conversion.SavePng(buffer, pdfBytes, pageNumber - 1, password,
+                options: new RenderOptions(Dpi: dpi, WithAnnotations: true, WithFormFill: true));
+        }
         return buffer.ToArray();
     }
 }

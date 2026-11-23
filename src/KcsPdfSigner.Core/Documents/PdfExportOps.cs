@@ -42,10 +42,13 @@ public static class PdfExportOps
             var file = Path.Combine(outputFolder, $"{baseName}_page{page:000}.{kind}");
             using (var stream = File.Create(file))
             {
-                if (kind == "png")
-                    Conversion.SavePng(stream, bytes, page - 1, password, options);
-                else
-                    Conversion.SaveJpeg(stream, bytes, page - 1, password, options);
+                lock (PdfiumGate.Sync)
+                {
+                    if (kind == "png")
+                        Conversion.SavePng(stream, bytes, page - 1, password, options);
+                    else
+                        Conversion.SaveJpeg(stream, bytes, page - 1, password, options);
+                }
             }
             written.Add(file);
         }

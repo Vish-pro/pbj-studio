@@ -19,6 +19,13 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Command line OCR (no window): PBJStudio.exe --ocr input.pdf output.pdf [--lang hin+eng]
+        if (e.Args.Length > 0 && string.Equals(e.Args[0], "--ocr", StringComparison.OrdinalIgnoreCase))
+        {
+            Shutdown(CommandLineOcr.Run(e.Args));
+            return;
+        }
+
         // One window per user: hand any PDFs to the copy that is already running and quit.
         if (!SingleInstance.TryBecomeFirst())
         {

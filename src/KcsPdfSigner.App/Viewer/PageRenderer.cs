@@ -11,7 +11,8 @@ namespace KcsPdfSigner.App.Viewer;
 /// </summary>
 public static class PageRenderer
 {
-    private static readonly object Gate = new();
+    /// <summary>Shared with Core (image export, OCR): one lock for every PDFium render in the program.</summary>
+    private static readonly object Gate = KcsPdfSigner.Core.PdfiumGate.Sync;
 
     /// <summary>Upper bound on rendered pixels per page (about 64 MB of BGRA).</summary>
     public const double MaxPixels = 16_000_000;
