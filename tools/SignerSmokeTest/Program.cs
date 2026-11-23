@@ -140,6 +140,10 @@ if (!runResult.Aborted) SignatureCompatChecks.Run(workFolder, signedPdf, failure
 
 if (!runResult.Aborted) PrintAndKeepChecks.Run(workFolder, failures);
 
+// ---- 33 and up. Signature verification reports what Acrobat reports -----------------
+
+if (!runResult.Aborted) SignatureVerifyChecks.Run(workFolder, signedPdf, failures);
+
 // ---- Result ------------------------------------------------------------------
 
 Console.WriteLine();
