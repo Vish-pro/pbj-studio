@@ -757,6 +757,43 @@ int RunAll()
         AppSettings.Apply(on);
         WaitFor(() => Bars().Count > 0);
         Check(Bars().Contains(SuggestionIds.PasswordProtected), "switching it back on shows the bars again");
+
+        // Scan Cleaner: registered, takes pictures (JPG, PNG, TIFF), previews, and makes one A4 page per picture.
+        Console.WriteLine("[10] Scan Cleaner tool");
+        Check(Get<System.Collections.IList>(window, "_tools").Cast<object>().Any(t => Get<KcsPdfSigner.App.Tools.IToolPanel>(t, "Panel").Title == "Scan Cleaner"),
+            "the Scan Cleaner tool is registered (tools pane and Tools menu)");
+        Check(window.OpenTool("Scan Cleaner") && toolPane.Content is KcsPdfSigner.App.Tools.ScanCleanerPanel, "Scan Cleaner opens from the tools pane");
+        var scanPanel = (KcsPdfSigner.App.Tools.ScanCleanerPanel)toolPane.Content;
+        var scanDir = Path.Combine(Path.GetTempPath(), "KcsPdfSignerSmokeTest", "scan");
+        var tiffPath = Path.Combine(scanDir, "photo.tif");
+        {
+            var jpeg = new System.Windows.Media.Imaging.JpegBitmapDecoder(new Uri(Path.Combine(scanDir, "p0.jpg")),
+                System.Windows.Media.Imaging.BitmapCreateOptions.None, System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+            var tiff = new System.Windows.Media.Imaging.TiffBitmapEncoder();
+            tiff.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(jpeg.Frames[0]));
+            using var tiffStream = File.Create(tiffPath);
+            tiff.Save(tiffStream);
+        }
+
+        var addFiles = typeof(KcsPdfSigner.App.Tools.ScanCleanerPanel).GetMethod("AddFiles", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var addedCount = (int)addFiles.Invoke(scanPanel, [new[] { Path.Combine(scanDir, "p0.jpg"), Path.Combine(scanDir, "p1.jpg"), tiffPath, Path.Combine(scanDir, "missing.jpg"), Path.Combine(scanDir, "out-Colour.pdf") }])!;
+        var pictureList = Get<ListBox>(scanPanel, "PictureList");
+        Check(addedCount == 3 && pictureList.Items.Count == 3, $"three pictures were added (JPG and TIFF); a missing file and a PDF were skipped ({addedCount})");
+        pictureList.SelectedIndex = 2;
+        var preview = (Task)typeof(KcsPdfSigner.App.Tools.ScanCleanerPanel).GetMethod("ShowPreviewAsync", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(scanPanel, null)!;
+        Wait(preview);
+        Check(Get<System.Windows.Controls.Image>(scanPanel, "BeforeImage").Source is not null && Get<System.Windows.Controls.Image>(scanPanel, "AfterImage").Source is not null,
+            "selecting the TIFF shows a before and an after picture");
+        Console.WriteLine("    preview: " + Get<TextBlock>(scanPanel, "PreviewText").Text);
+        Get<RadioButton>(scanPanel, "BwRadio").IsChecked = true;
+        var scanOut = Path.Combine(scanDir, "ui-output.pdf");
+        if (File.Exists(scanOut)) File.Delete(scanOut);
+        var scanRun = (Task<bool>)typeof(KcsPdfSigner.App.Tools.ScanCleanerPanel).GetMethod("RunAsync", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(scanPanel, [scanOut])!;
+        Wait(scanRun);
+        Check(scanRun.Result && File.Exists(scanOut) && scanPanel.LastResult?.PagesWritten == 3, "Make PDF writes one page per picture");
+        using (var scanPdf = new iText.Kernel.Pdf.PdfDocument(new iText.Kernel.Pdf.PdfReader(scanOut)))
+            Check(scanPdf.GetNumberOfPages() == 3 && Math.Abs(scanPdf.GetPage(1).GetPageSize().GetWidth() - 595.3) < 1, "the PDF has three A4 pages");
+        Console.WriteLine("    result: " + Get<TextBlock>(scanPanel, "ResultText").Text.Replace('\n', '|'));
     }
 
     void PreferencesTest()

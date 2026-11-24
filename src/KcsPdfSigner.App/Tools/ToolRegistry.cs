@@ -21,6 +21,7 @@ public static class ToolRegistry
         new ProtectPanel(),
         new ExportPanel(),
         new OcrPanel(),
+        new ScanCleanerPanel(),
         new SearchPanel(),
         new PropertiesPanel(),
         new ReadAloudPanel(),

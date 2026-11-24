@@ -9,4 +9,5 @@
   <Var name="UseUnicodeNames" value="true" />
   <Var name="OptimizeMethods" value="true" />
   <Var name="SuppressIldasm" value="true" />
+  <AssemblySearchPath path="C:\Users\Vishwanath\.nuget\packages\skiasharp\4.150.1\lib\net6.0\" />
   <Module file="$(InPath)$(Asm).dll" />

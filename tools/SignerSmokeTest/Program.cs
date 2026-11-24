@@ -23,6 +23,14 @@ var signedPdf = Path.Combine(workFolder, "signed.pdf");
 
 var failures = new List<string>();
 
+// "--scan" runs only the Scan Cleaner checks (66 and up) while that tool is being worked on.
+if (args.Contains("--scan"))
+{
+    ScanChecks.Run(workFolder, failures);
+    foreach (var f in failures) Console.WriteLine("  - " + f);
+    return failures.Count == 0 ? 0 : 1;
+}
+
 BuildTestPdf(sourcePdf);
 BuildPdfWithBlankSignatureField(fieldPdf);
 Console.WriteLine($"Built test PDFs in {workFolder}");
@@ -151,6 +159,10 @@ if (!runResult.Aborted) AdvisorChecks.Run(workFolder, sourcePdf, signedPdf, fail
 // ---- 56 and up. OCR: making scanned PDFs searchable ----------------------------------
 
 OcrChecks.Run(workFolder, failures);
+
+// ---- 66 and up. Scan Cleaner: pictures to clean scanned pages ----------------------------
+
+ScanChecks.Run(workFolder, failures);
 
 // ---- Result ------------------------------------------------------------------
 

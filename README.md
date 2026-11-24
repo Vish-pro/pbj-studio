@@ -8,6 +8,22 @@ sign one PDF in many places in a single run, using a Digital Signature Certifica
 
 Black-and-white interface. All code and icons are original.
 
+## What you will not find in most PDF readers
+
+| Feature | What it does for you |
+|---|---|
+| **Multi-Sign (DSC)** | Sign one PDF in many places in one run with your USB token: one PIN prompt, every signature box found automatically. |
+| **Scan Cleaner** | Turn phone photos of pages into clean, straight, white A4 PDF pages (edges found, shadows removed, colour, grey or black and white). |
+| **OCR in Indian languages** | Make scanned PDFs searchable, including Hindi, Kannada, Marathi, Tamil, Telugu and more. Runs on your PC; nothing is uploaded. |
+| **Signature check like Acrobat** | Banner, Signatures pane and properties: shows whether a signed PDF is valid, and who signed it. |
+| **Multiple PDFs** | Pick pages from several PDFs and build one new PDF in one go. |
+| **Suggestion bars** | Quiet hints when they help: scanned file, sideways pages, a password, big size, hidden information, before you send. |
+| **Send check** | Checks a PDF before you email it to a bank or office: size, password, hidden information. |
+| **Save a copy without password** | Remove a password from a PDF you own (you type REMOVE PASSWORD to confirm). |
+| **Safe print and edit of signed files** | Warns before a change that would break signatures; refuses to print what the owner forbids. |
+
+Everything runs offline on your PC, and the program is free and open source (MIT).
+
 ---
 
 # Part 1 - For everyone: install and use
@@ -52,6 +68,7 @@ The program works on a private copy. Your original file is not changed until you
 | **Protect** | Add or remove a password (AES-256) and set permissions. |
 | **Export** | Pages to images, text, or a smaller optimised PDF. |
 | **OCR** | Make a scanned PDF searchable: adds an invisible text layer (English, plus Indian languages you add). See below. |
+| **Scan Cleaner** | Turn photos of pages into clean scanned PDF pages: edges found, straightened, shadows removed, colour, grey or black and white, optionally searchable. See below. |
 | **Properties, Search, Read Aloud** | Document details, find text, and have a page read out. |
 
 ## Pick pages from several PDFs (Multiple PDFs)
@@ -115,6 +132,24 @@ missing, the OCR tool says so and tells you where to get it.
 A PDF with a password can be made searchable only when you opened it with its owner password (the one that allows
 changes), like any other change in the program. On a digitally signed PDF the program warns you first, because
 adding text breaks the signatures.
+
+## Turn photos into clean scanned PDFs (Scan Cleaner)
+
+Photographed a page on your phone? Scan Cleaner turns the photos into neat, white, straight A4 pages in one PDF.
+
+1. Open **Scan Cleaner** in the tools pane (Tools > Scan Cleaner). No PDF needs to be open.
+2. **Add pictures...** (JPG, PNG, TIFF, BMP; or drop them on the list). Move them up or down to set the page order.
+3. Click a picture: **Before and after** shows what the clean-up will do.
+4. Choose the output: **Colour**, **Grey**, or **Black and white** (crisp text, smallest file).
+5. Click **Make PDF...**, choose a name. One A4 page per picture. A **Cancel** button stops a long run.
+
+What it does for each picture: finds the page edges and flattens a photo taken at an angle, straightens tilted text, whitens
+the paper and removes shadows and uneven light, reduces noise and sharpens. Tick **Make searchable (OCR)** to also add a
+text layer (slower; see the OCR section for languages and limits).
+
+Photograph the page on a darker table, in even light, with the whole page in view. If no page edge can be found (white page
+on a white table), the whole picture is straightened and cleaned instead; the result line tells you. Pictures that cannot be
+read are skipped and named. Sizes: a 20-photo PDF is about 6 MB in colour and under 1 MB in black and white.
 
 ## Sign a PDF at many places
 
