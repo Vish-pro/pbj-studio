@@ -343,13 +343,13 @@ public static class ScanImageOps
         int w = grey.Width, h = grey.Height;
         if (w < 16 || h < 16) return null;
         var plane = BoxBlur(grey.Planes[0], w, h, 1);
-        var threshold = OtsuThreshold(plane);
+        var otsu = OtsuThreshold(plane);
 
         // The desk must be clearly darker than the paper, or there is no edge to find.
         long sumLight = 0, sumDark = 0, nLight = 0, nDark = 0;
         foreach (var v in plane)
         {
-            if (v > threshold) { sumLight += v; nLight++; }
+            if (v > otsu) { sumLight += v; nLight++; }
             else { sumDark += v; nDark++; }
         }
 
@@ -364,22 +364,59 @@ public static class ScanImageOps
             {
                 if (x >= 4 && x < w - 4 && y >= 4 && y < h - 4) continue;
                 ring++;
-                if (plane[y * w + x] <= threshold) ringDark++;
+                if (plane[y * w + x] <= otsu) ringDark++;
             }
         }
 
         if (ringDark < 0.15 * ring) return null;
         if (sumLight / (double)nLight - sumDark / (double)nDark < 35) return null;
 
-        // Largest connected bright area (4-neighbours, breadth-first).
+        // A lit desk can be brighter than the first cut, so a few cuts are tried: the first (Otsu), then
+        // higher ones from the bright group alone. The candidate whose four sides all have a real edge wins.
+        var upper = new byte[(int)nLight];
+        var ui = 0;
+        foreach (var v in plane)
+            if (v > otsu) upper[ui++] = v;
+        var otsuUpper = OtsuThreshold(upper);
+        int[] cuts = [otsu, (otsu + otsuUpper) / 2, otsuUpper];
+
+        PageQuad? best = null;
+        var bestScore = 0.0;
+        foreach (var cut in cuts.Distinct())
+        {
+            var candidate = QuadAtCut(plane, w, h, cut);
+            if (candidate is null) continue;
+            var score = EdgeScore(plane, w, h, candidate);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+
+        return bestScore >= 0.6 ? best : null;
+    }
+
+    /// <summary>The corner quadrilateral of the largest bright area above <paramref name="threshold"/>, or null when it is not page-shaped.</summary>
+    private static PageQuad? QuadAtCut(byte[] plane, int w, int h, int threshold)
+    {
+        // Bright mask, opened (eroded then dilated) so thin bridges to bright desk areas are cut.
+        var mask = new byte[plane.Length];
+        for (var i = 0; i < plane.Length; i++) mask[i] = (byte)(plane[i] > threshold ? 255 : 0);
+        var inverted = new byte[mask.Length];
+        for (var i = 0; i < mask.Length; i++) inverted[i] = (byte)(255 - mask[i]);
+        var eroded = Dilate(inverted, w, h, 3);
+        for (var i = 0; i < eroded.Length; i++) eroded[i] = (byte)(255 - eroded[i]);
+        mask = Dilate(eroded, w, h, 3);
+
         var label = new int[plane.Length];
         var queue = new int[plane.Length];
         var best = 0;
         var bestLabel = 0;
         var next = 0;
-        for (var start = 0; start < plane.Length; start++)
+        for (var start = 0; start < mask.Length; start++)
         {
-            if (plane[start] <= threshold || label[start] != 0) continue;
+            if (mask[start] == 0 || label[start] != 0) continue;
             next++;
             var head = 0;
             var tail = 0;
@@ -389,10 +426,10 @@ public static class ScanImageOps
             {
                 var cur = queue[head++];
                 int cx = cur % w, cy = cur / w;
-                if (cx > 0 && plane[cur - 1] > threshold && label[cur - 1] == 0) { label[cur - 1] = next; queue[tail++] = cur - 1; }
-                if (cx < w - 1 && plane[cur + 1] > threshold && label[cur + 1] == 0) { label[cur + 1] = next; queue[tail++] = cur + 1; }
-                if (cy > 0 && plane[cur - w] > threshold && label[cur - w] == 0) { label[cur - w] = next; queue[tail++] = cur - w; }
-                if (cy < h - 1 && plane[cur + w] > threshold && label[cur + w] == 0) { label[cur + w] = next; queue[tail++] = cur + w; }
+                if (cx > 0 && mask[cur - 1] != 0 && label[cur - 1] == 0) { label[cur - 1] = next; queue[tail++] = cur - 1; }
+                if (cx < w - 1 && mask[cur + 1] != 0 && label[cur + 1] == 0) { label[cur + 1] = next; queue[tail++] = cur + 1; }
+                if (cy > 0 && mask[cur - w] != 0 && label[cur - w] == 0) { label[cur - w] = next; queue[tail++] = cur - w; }
+                if (cy < h - 1 && mask[cur + w] != 0 && label[cur + w] == 0) { label[cur + w] = next; queue[tail++] = cur + w; }
             }
 
             if (tail > best)
@@ -402,18 +439,16 @@ public static class ScanImageOps
             }
         }
 
-        if (best < 0.15 * w * h) return null;
+        if (best < 0.15 * w * h || best > 0.93 * w * h) return null;
 
         // Extreme points along the two diagonals.
         double minSum = double.MaxValue, maxSum = double.MinValue, minDiff = double.MaxValue, maxDiff = double.MinValue;
         PointD tl = default, br = default, tr = default, bl = default;
-        var touchesBorder = 0;
         for (var y = 0; y < h; y++)
         {
             for (var x = 0; x < w; x++)
             {
                 if (label[y * w + x] != bestLabel) continue;
-                if (x == 0 || y == 0 || x == w - 1 || y == h - 1) touchesBorder++;
                 double s = x + y, d = x - y;
                 if (s < minSum) { minSum = s; tl = new(x, y); }
                 if (s > maxSum) { maxSum = s; br = new(x, y); }
@@ -422,17 +457,63 @@ public static class ScanImageOps
             }
         }
 
-        // The bright area is the whole picture (a flat scan): there is no page edge inside it.
-        if (best > 0.93 * w * h) return null;
-
         var quad = new PageQuad(tl, tr, br, bl);
         if (!IsConvex(quad)) return null;
         var area = PolygonArea(quad.Corners);
         if (area < 0.2 * w * h) return null;
         // A page-shaped area fills most of its corner quadrilateral; a ragged blob does not.
-        if (best < 0.7 * area) return null;
+        if (best < 0.75 * area) return null;
         if (Distance(tl, tr) < 0.15 * w || Distance(tl, bl) < 0.15 * h) return null;
         return quad;
+    }
+
+    /// <summary>
+    /// How well the four sides of a quad are real page edges: the share of sample points along each side
+    /// where the inside is clearly brighter than the outside (a side on the picture border counts as an edge).
+    /// Returns the weakest side's share.
+    /// </summary>
+    private static double EdgeScore(byte[] plane, int w, int h, PageQuad quad)
+    {
+        var c = quad.Corners;
+        var worst = 1.0;
+        var cx = c.Average(p => p.X);
+        var cy = c.Average(p => p.Y);
+        for (var side = 0; side < 4; side++)
+        {
+            var a = c[side];
+            var b = c[(side + 1) % 4];
+            var dx = b.X - a.X;
+            var dy = b.Y - a.Y;
+            var length = Math.Sqrt(dx * dx + dy * dy);
+            if (length < 1) return 0;
+            // Unit normal pointing into the page.
+            double nx = -dy / length, ny = dx / length;
+            if (nx * (cx - a.X) + ny * (cy - a.Y) < 0) { nx = -nx; ny = -ny; }
+
+            var good = 0;
+            var total = 0;
+            for (var k = 0; k < 40; k++)
+            {
+                var t = 0.1 + 0.8 * k / 39.0;
+                double px = a.X + dx * t, py = a.Y + dy * t;
+                double ix = px + nx * 6, iy = py + ny * 6, ox = px - nx * 6, oy = py - ny * 6;
+                total++;
+                if (ox < 1 || oy < 1 || ox > w - 2 || oy > h - 2)
+                {
+                    good++;
+                    continue;
+                }
+
+                if (ix < 0 || iy < 0 || ix > w - 1 || iy > h - 1) continue;
+                var inside = plane[(int)iy * w + (int)ix];
+                var outside = plane[(int)oy * w + (int)ox];
+                if (inside - outside >= 12) good++;
+            }
+
+            worst = Math.Min(worst, good / (double)total);
+        }
+
+        return worst;
     }
 
     private static bool IsConvex(PageQuad quad)

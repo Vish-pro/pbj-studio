@@ -136,7 +136,9 @@ public static class ScanCleaner
             if (found is not null) found = ScanImageOps.Shrink(found, 0.004);
         }
 
-        var quad = found ?? new PageQuad(new(0, 0), new(source.Width, 0), new(source.Width, source.Height), new(0, source.Height));
+        // No page edge found: the page is taken to fill the picture, minus a thin rim where the desk or a dark edge may show.
+        var whole = new PageQuad(new(0, 0), new(source.Width, 0), new(source.Width, source.Height), new(0, source.Height));
+        var quad = found ?? (options.FindPageEdges ? ScanImageOps.Shrink(whole, 0.03) : whole);
         var edgesFound = found is not null;
 
         // 2. Output size: the page fitted on A4 at the chosen resolution, never more detail than the picture has.

@@ -45,6 +45,15 @@ internal static class ScanChecks
             Console.WriteLine($"    worst corner error {worst:0} px ({worst / diagonal:P1} of the diagonal)");
             Check(worst < 0.025 * diagonal, $"a corner is {worst:0} px off");
 
+            // A light desk, close to the paper in brightness: the page is found correctly or not at all, never a wrong cut.
+            var pale = F("pale-desk.jpg");
+            MakePhoto(pale, TruePaper, shadow: false, noise: 10, textGrey: 20, desk: 170);
+            var paleSmall = ScanImageOps.DownscaleToFit(ScanImageOps.ToGrey(ScanImageOps.Load(pale)), 640, out var paleFactor);
+            var paleQuad = ScanImageOps.FindPageQuad(paleSmall)?.Scaled(paleFactor);
+            var paleWorst = paleQuad is null ? 0 : paleQuad.Corners.Zip(TruePaper.Corners, (a, b) => ScanImageOps.Distance(a, b)).Max();
+            Console.WriteLine(paleQuad is null ? "    pale desk: no page found (fine)" : $"    pale desk: worst corner error {paleWorst:0} px");
+            Check(paleQuad is null || paleWorst < 0.04 * diagonal, $"on a pale desk a wrong page was cut out (corner {paleWorst:0} px off)");
+
             // A flat picture that is all paper has no edge to find.
             using var flat = FlatPage(600, 800, 0, 20);
             var flatGrey = ScanImageOps.DownscaleToFit(ScanImageOps.ToGrey(ScanImageOps.FromBitmap(flat)), 640, out _);
@@ -301,13 +310,13 @@ internal static class ScanChecks
         return bitmap;
     }
 
-    private static void MakePhoto(string path, PageQuad paper, bool shadow, int noise, int textGrey)
+    private static void MakePhoto(string path, PageQuad paper, bool shadow, int noise, int textGrey, byte desk = 40)
     {
         using var page = FlatPage(1240, 1754, 0, textGrey);
         using var photo = new SKBitmap(new SKImageInfo(1800, 2400, SKColorType.Rgba8888, SKAlphaType.Opaque));
         using (var canvas = new SKCanvas(photo))
         {
-            canvas.Clear(new SKColor(46, 40, 36));
+            canvas.Clear(new SKColor((byte)(desk + 6), desk, (byte)(desk - 4)));
             var h = ScanImageOps.SolveHomography(page.Width, page.Height, paper);
             var matrix = new SKMatrix((float)h[0], (float)h[1], (float)h[2], (float)h[3], (float)h[4], (float)h[5], (float)h[6], (float)h[7], 1f);
             canvas.SetMatrix(matrix);
