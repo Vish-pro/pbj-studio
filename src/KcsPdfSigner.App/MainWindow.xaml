@@ -294,6 +294,11 @@
             <Grid>
                 <TabControl x:Name="DocumentTabs" BorderThickness="0,1,0,0"
                             SelectionChanged="OnDocumentTabChanged" />
+                <Button x:Name="NewTabButton" Style="{StaticResource IconButton}" Command="{Binding OpenCommand}"
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,8,0"
+                        ToolTip="Open another PDF (Ctrl+O)">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.Plus}" />
+                </Button>
                 <StackPanel x:Name="WelcomePanel" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Path Style="{StaticResource IconPath}" Data="{StaticResource Icon.MultiSign}" Opacity="0.9">
                         <Path.LayoutTransform>
