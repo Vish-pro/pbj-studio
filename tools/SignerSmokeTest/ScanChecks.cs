@@ -249,6 +249,26 @@ internal static class ScanChecks
             Check(Directory.GetFiles(folder, "*.part*").Length == 0, "a cancelled run left a temporary file");
         });
 
+        Step("[75] Scan cleaner, crops: several crops are offered, the best first, and the chosen one is used", () =>
+        {
+            var variants = ScanCleaner.CropVariants(photoRaster);
+            Console.WriteLine("    crops: " + string.Join(" | ", variants.Select(v => v.Name)));
+            Check(variants.Count >= 4, $"only {variants.Count} crops offered");
+            Check(variants[0].Name == "Page edges" && variants[0].PageFound, "the first crop is not the page found by its edges");
+            Check(variants[^1].Name == "Whole picture, no crop", "the last crop is not the whole picture");
+            var first = ScanCleaner.Clean(photoRaster, new ScanCleanOptions(), 60, 0);
+            var whole = ScanCleaner.Clean(photoRaster, new ScanCleanOptions(), 60, variants.Count - 1);
+            Check(first.CropName == "Page edges" && first.CropCount == variants.Count, "Clean did not report the crop and the count");
+            var firstBorder = BorderMean(ScanImageOps.ToGrey(first.Image).Planes[0], first.Image.Width, first.Image.Height, 4);
+            var wholeBorder = BorderMean(ScanImageOps.ToGrey(whole.Image).Planes[0], whole.Image.Width, whole.Image.Height, 4);
+            Console.WriteLine($"    border brightness: best crop {firstBorder:0}, whole picture {wholeBorder:0}");
+            Check(firstBorder > 215 && wholeBorder < firstBorder - 20, "the whole-picture crop should show the desk and the best crop should not");
+            var pdf = F("crop-choice.pdf");
+            ScanCleaner.CreatePdf([F("p0.jpg")], pdf, new ScanCleanOptions { Mode = ScanColorMode.Grey, CropFor = _ => variants.Count - 1 });
+            ScanCleaner.CreatePdf([F("p0.jpg")], F("crop-best.pdf"), new ScanCleanOptions { Mode = ScanColorMode.Grey });
+            Check(new FileInfo(pdf).Length != new FileInfo(F("crop-best.pdf")).Length, "the chosen crop was not used for the PDF");
+        });
+
         Step("[74] Scan cleaner, searchable: the cleaned PDF can be read by OCR and searched", () =>
         {
             var engine = PdfOcrOps.CheckEngine();

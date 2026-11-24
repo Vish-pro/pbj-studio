@@ -50,6 +50,9 @@ public sealed class ScanCleanOptions
     /// <summary>Tesseract language codes for <see cref="MakeSearchable"/>.</summary>
     public IReadOnlyList<string> OcrLanguages { get; init; } = ["eng"];
 
+    /// <summary>Which crop to use for a picture file (index into <see cref="ScanCleaner.CropVariants"/>); null or 0 means the best.</summary>
+    public Func<string, int>? CropFor { get; init; }
+
     /// <summary>A4 margin in points around the picture.</summary>
     public double MarginPoints { get; init; } = 0;
 
@@ -69,7 +72,16 @@ public sealed class CleanedPage
 
     /// <summary>Tilt that was removed, in degrees (0 when none).</summary>
     public double SkewDegrees { get; init; }
+
+    /// <summary>Name of the crop used, e.g. "Page edges".</summary>
+    public string CropName { get; init; } = "";
+
+    /// <summary>How many crops were on offer for this picture.</summary>
+    public int CropCount { get; init; } = 1;
 }
+
+/// <summary>One way to cut the page out of a picture.</summary>
+public sealed record CropVariant(string Name, PageQuad Quad, bool PageFound);
 
 /// <summary>What a run of <see cref="ScanCleaner.CreatePdf"/> did.</summary>
 public sealed class ScanRunResult
@@ -109,7 +121,7 @@ public static class ScanCleaner
         // A page is at most 297 mm: 11.7 in. The source needs no more detail than about twice the result.
         var needed = (int)Math.Min(MaxSourceSide, Math.Max(1200, dpi * 11.7 * 2.2));
         using var picture = new DisposableRaster(ScanImageOps.Load(path, needed));
-        return Clean(picture.Value, options, dpi);
+        return Clean(picture.Value, options, dpi, options.CropFor?.Invoke(path) ?? 0);
     }
 
     private sealed class DisposableRaster(Raster value) : IDisposable
@@ -121,25 +133,67 @@ public static class ScanCleaner
         }
     }
 
+    /// <summary>
+    /// The ways the page can be cut out of a picture, best first: the page found by its edges (or, when no
+    /// edge is found, the whole picture without its rim), then other readings of the edges, tighter and looser
+    /// cuts, and the whole picture. Cuts that come out the same are listed once.
+    /// </summary>
+    public static List<CropVariant> CropVariants(Raster source)
+    {
+        var small = ScanImageOps.DownscaleToFit(ScanImageOps.ToGrey(source), 640, out var factor);
+        var whole = new PageQuad(new(0, 0), new(source.Width, 0), new(source.Width, source.Height), new(0, source.Height));
+        var variants = new List<CropVariant>();
+
+        void Add(string name, PageQuad quad, bool found)
+        {
+            var diagonal = Math.Sqrt((double)source.Width * source.Width + (double)source.Height * source.Height);
+            foreach (var other in variants)
+            {
+                var same = other.Quad.Corners.Zip(quad.Corners, (a, b) => ScanImageOps.Distance(a, b)).Max();
+                if (same < 0.008 * diagonal) return;
+            }
+
+            variants.Add(new CropVariant(name, quad, found));
+        }
+
+        var best = ScanImageOps.FindPageQuad(small)?.Scaled(factor);
+        var byLines = ScanImageOps.FindPageByLines(small)?.Scaled(factor);
+        var byCut = ScanImageOps.FindPageByCut(small)?.Scaled(factor);
+        if (best is not null)
+        {
+            Add("Page edges", ScanImageOps.Shrink(best, 0.008), true);
+            Add("Page edges, tighter", ScanImageOps.Shrink(best, 0.06), true);
+            Add("Page edges, looser", ScanImageOps.Shrink(best, -0.05), true);
+        }
+
+        if (byLines is not null) Add("Page edges (by lines)", ScanImageOps.Shrink(byLines, 0.008), true);
+        if (byCut is not null) Add("Page edges (by brightness)", ScanImageOps.Shrink(byCut, 0.008), true);
+        Add("Whole picture, rim trimmed", ScanImageOps.Shrink(whole, 0.03), false);
+        Add("Whole picture, no crop", whole, false);
+        return variants;
+    }
+
     /// <summary>Cleans a picture already in memory at the given page resolution.</summary>
-    public static CleanedPage Clean(Raster source, ScanCleanOptions options, int dpi)
+    public static CleanedPage Clean(Raster source, ScanCleanOptions options, int dpi, int cropIndex = 0)
     {
         ArgumentNullException.ThrowIfNull(source);
         var mode = options.Mode;
 
-        // 1. Page edges (on a reduced copy), as corners in source pixels.
-        PageQuad? found = null;
+        // 1. Where the page is: the chosen crop (the best one is first), as corners in source pixels.
+        var whole = new PageQuad(new(0, 0), new(source.Width, 0), new(source.Width, source.Height), new(0, source.Height));
+        PageQuad quad = whole;
+        var edgesFound = false;
+        var cropName = "Whole picture";
+        var cropCount = 1;
         if (options.FindPageEdges)
         {
-            var smallGrey = ScanImageOps.DownscaleToFit(ScanImageOps.ToGrey(source), 640, out var factor);
-            found = ScanImageOps.FindPageQuad(smallGrey)?.Scaled(factor);
-            if (found is not null) found = ScanImageOps.Shrink(found, 0.008);
+            var variants = CropVariants(source);
+            var chosen = variants[Math.Clamp(cropIndex, 0, variants.Count - 1)];
+            quad = chosen.Quad;
+            edgesFound = chosen.PageFound;
+            cropName = chosen.Name;
+            cropCount = variants.Count;
         }
-
-        // No page edge found: the page is taken to fill the picture, minus a thin rim where the desk or a dark edge may show.
-        var whole = new PageQuad(new(0, 0), new(source.Width, 0), new(source.Width, source.Height), new(0, source.Height));
-        var quad = found ?? (options.FindPageEdges ? ScanImageOps.Shrink(whole, 0.03) : whole);
-        var edgesFound = found is not null;
 
         // 2. Output size: the page fitted on A4 at the chosen resolution, never more detail than the picture has.
         double qw = (ScanImageOps.Distance(quad.TopLeft, quad.TopRight) + ScanImageOps.Distance(quad.BottomLeft, quad.BottomRight)) / 2;
@@ -187,7 +241,7 @@ public static class ScanCleaner
         if (options.CleanBackground || mode == ScanColorMode.BlackAndWhite) page = ScanImageOps.Levels(page);
         if (mode == ScanColorMode.BlackAndWhite) page = ScanImageOps.ToBlackAndWhite(page);
 
-        return new CleanedPage { Image = page, Mode = mode, EdgesFound = edgesFound, SkewDegrees = skew };
+        return new CleanedPage { Image = page, Mode = mode, EdgesFound = edgesFound, SkewDegrees = skew, CropName = cropName, CropCount = cropCount };
     }
 
     /// <summary>

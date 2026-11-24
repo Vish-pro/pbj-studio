@@ -54,10 +54,20 @@
                 <Border BorderBrush="#40808080" BorderThickness="1" Height="210">
                     <Image x:Name="BeforeImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
                 </Border>
-                <Border Grid.Column="2" BorderBrush="#40808080" BorderThickness="1" Height="210" Background="White">
+                <Border x:Name="AfterBorder" Grid.Column="2" BorderBrush="#40808080" BorderThickness="1" Height="210" Background="White"
+                        Focusable="True" Cursor="SizeWE" MouseWheel="OnAfterWheel" PreviewMouseLeftButtonDown="OnAfterDown"
+                        PreviewMouseLeftButtonUp="OnAfterUp" KeyDown="OnAfterKeyDown"
+                        ToolTip="Swipe left or right, scroll, or press the arrow keys to see other crops">
                     <Image x:Name="AfterImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
                 </Border>
             </Grid>
+            <DockPanel x:Name="CropBar" Margin="0,6,0,0" Visibility="Collapsed">
+                <Button x:Name="CropPrevButton" DockPanel.Dock="Left" Content="&lt;" Width="34" Click="OnCropPrev" ToolTip="Previous crop" />
+                <Button x:Name="CropNextButton" DockPanel.Dock="Right" Content="&gt;" Width="34" Click="OnCropNext" ToolTip="Next crop" />
+                <TextBlock x:Name="CropText" TextAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Center" Margin="6,0" />
+            </DockPanel>
+            <TextBlock x:Name="CropHint" Style="{StaticResource Hint}" Margin="0,2,0,0" TextWrapping="Wrap" Visibility="Collapsed"
+                       Text="The first crop is the best guess. Swipe on the right picture (or use the arrows) to try others; the one you leave on is kept. It applies to every selected picture." />
             <TextBlock x:Name="PreviewText" Style="{StaticResource Hint}" Margin="0,4,0,0" TextWrapping="Wrap"
                        Text="Select a picture to see the clean-up." />
 

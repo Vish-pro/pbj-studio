@@ -139,7 +139,7 @@ Photographed a page on your phone? Scan Cleaner turns the photos into neat, whit
 
 1. Open **Scan Cleaner** in the tools pane (Tools > Scan Cleaner). No PDF needs to be open.
 2. **Add pictures...** (JPG, PNG, TIFF, BMP; or drop them on the list). Move them up or down to set the page order.
-3. Click a picture: **Before and after** shows what the clean-up will do.
+3. Click a picture: **Before and after** shows what the clean-up will do. The first crop is the best guess; **swipe on the right picture** (or use the arrows, mouse wheel or arrow keys) to try other crops (tighter, looser, whole picture). The crop you leave on is kept, for every selected picture.
 4. Choose the output: **Colour**, **Grey**, or **Black and white** (crisp text, smallest file).
 5. Click **Make PDF...**, choose a name. One A4 page per picture. A **Cancel** button stops a long run.
 

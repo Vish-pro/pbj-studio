@@ -174,8 +174,17 @@ public partial class ScanCleanerPanel : UserControl, IToolPanel
         Straighten = StraightenCheck.IsChecked == true,
         CleanBackground = BackgroundCheck.IsChecked == true,
         MakeSearchable = withOcr && OcrCheck.IsChecked == true,
+        CropFor = CropSnapshot(),
         OcrLanguages = _languages.Where(l => l.IsSelected).Select(l => l.Code).DefaultIfEmpty(OcrLanguages.EnglishCode).ToList(),
     };
+
+    /// <summary>The crop chosen for each picture, copied now so a background run can read it.</summary>
+    private Func<string, int> CropSnapshot()
+    {
+        var choices = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var picture in _pictures) choices.TryAdd(picture.Path, picture.CropIndex);
+        return path => choices.TryGetValue(path, out var index) ? index : 0;
+    }
 
     private void OnOptionChanged(object sender, RoutedEventArgs e)
     {
@@ -233,22 +242,35 @@ public partial class ScanCleanerPanel : UserControl, IToolPanel
         {
             // Short pause: dragging through the list or ticking boxes quickly does not start a clean-up each time.
             await Task.Delay(150, cancel.Token);
-            var (before, after, note) = await Task.Run(() =>
+            var cropIndex = picture.CropIndex;
+            var (before, after, note, count, cropName) = await Task.Run(() =>
             {
                 cancel.Token.ThrowIfCancellationRequested();
-                using var raw = new PreviewSource(picture.Path);
-                var beforePng = ScanImageOps.ToPng(raw.Image);
+                // The picture is read once and kept while you swipe through its crops.
+                var cache = _previewCache;
+                if (cache is null || !string.Equals(cache.Path, picture.Path, StringComparison.OrdinalIgnoreCase))
+                {
+                    var source = ScanImageOps.Load(picture.Path, 2600);
+                    cache = new PreviewCache(picture.Path, source, ScanImageOps.ToPng(ScanImageOps.DownscaleToFit(source, 700, out _)));
+                    _previewCache = cache;
+                }
+
                 cancel.Token.ThrowIfCancellationRequested();
-                var cleaned = ScanCleaner.Clean(raw.Source, options, 80);
+                var cleaned = ScanCleaner.Clean(cache.Source, options, 80, cropIndex);
                 var afterPng = ScanImageOps.ToPng(cleaned.Image);
                 var text = (cleaned.EdgesFound ? "Page edges found and flattened. " : "No page edge found; the whole picture is used. ")
                            + (Math.Abs(cleaned.SkewDegrees) >= 0.15 ? $"Straightened by {Math.Abs(cleaned.SkewDegrees):0.#} degrees." : "Text was already straight.");
-                return (beforePng, afterPng, text);
+                return (cache.BeforePng, afterPng, text, cleaned.CropCount, cleaned.CropName);
             }, cancel.Token);
             if (version != _previewVersion) return;
             BeforeImage.Source = ToImage(before);
             AfterImage.Source = ToImage(after);
             PreviewText.Text = note;
+            picture.CropCount = count;
+            picture.CropIndex = Math.Clamp(picture.CropIndex, 0, count - 1);
+            CropText.Text = $"Crop {picture.CropIndex + 1} of {count}: {cropName}";
+            CropBar.Visibility = count > 1 ? Visibility.Visible : Visibility.Collapsed;
+            CropHint.Visibility = CropBar.Visibility;
         }
         catch (OperationCanceledException)
         {
@@ -262,22 +284,51 @@ public partial class ScanCleanerPanel : UserControl, IToolPanel
         }
     }
 
-    /// <summary>The picture for the "before" view: a reduced copy, and the same planes for cleaning.</summary>
-    private sealed class PreviewSource : IDisposable
+    private sealed record PreviewCache(string Path, Raster Source, byte[] BeforePng);
+
+    private PreviewCache? _previewCache;
+
+    private void OnCropPrev(object sender, RoutedEventArgs e) => StepCrop(-1);
+
+    private void OnCropNext(object sender, RoutedEventArgs e) => StepCrop(1);
+
+    /// <summary>Shows the next or previous crop of the selected picture(s); the shown one is the one kept.</summary>
+    private void StepCrop(int direction)
     {
-        public PreviewSource(string path)
-        {
-            Source = ScanImageOps.Load(path, 2600);
-            Image = ScanImageOps.DownscaleToFit(Source, 700, out _);
-        }
+        var selected = PictureList.SelectedItems.OfType<ScanPicture>().ToList();
+        if (selected.Count == 0) return;
+        var count = Math.Max(1, selected[0].CropCount);
+        var next = ((selected[0].CropIndex + direction) % count + count) % count;
+        foreach (var picture in selected) picture.CropIndex = next;
+        _ = ShowPreviewAsync();
+    }
 
-        public Raster Source { get; }
+    private System.Windows.Point _swipeStart;
 
-        public Raster Image { get; }
+    private void OnAfterDown(object sender, MouseButtonEventArgs e)
+    {
+        _swipeStart = e.GetPosition(AfterBorder);
+        AfterBorder.Focus();
+    }
 
-        public void Dispose()
-        {
-        }
+    private void OnAfterUp(object sender, MouseButtonEventArgs e)
+    {
+        var dx = e.GetPosition(AfterBorder).X - _swipeStart.X;
+        if (Math.Abs(dx) >= 30) StepCrop(dx < 0 ? 1 : -1);
+    }
+
+    private void OnAfterWheel(object sender, MouseWheelEventArgs e)
+    {
+        StepCrop(e.Delta < 0 ? 1 : -1);
+        e.Handled = true;
+    }
+
+    private void OnAfterKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.Right or Key.Down) StepCrop(1);
+        else if (e.Key is Key.Left or Key.Up) StepCrop(-1);
+        else return;
+        e.Handled = true;
     }
 
     private static BitmapImage ToImage(byte[] png)
@@ -479,6 +530,12 @@ public partial class ScanCleanerPanel : UserControl, IToolPanel
         }
 
         public string Path { get; }
+
+        /// <summary>Which crop is kept for this picture (0 is the best guess).</summary>
+        public int CropIndex { get; set; }
+
+        /// <summary>How many crops were on offer when last looked at.</summary>
+        public int CropCount { get; set; } = 1;
 
         public string Name { get; }
 

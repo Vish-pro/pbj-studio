@@ -483,7 +483,7 @@ public static class ScanImageOps
     /// a white page on a white table, no page at all). <paramref name="grey"/> should be a reduced picture
     /// (about 600 pixels); the corners are in its coordinates.
     /// </summary>
-    private static PageQuad? FindPageByCut(Raster grey)
+    public static PageQuad? FindPageByCut(Raster grey)
     {
         int w = grey.Width, h = grey.Height;
         if (w < 16 || h < 16) return null;

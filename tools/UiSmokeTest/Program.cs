@@ -785,6 +785,14 @@ int RunAll()
         Check(Get<System.Windows.Controls.Image>(scanPanel, "BeforeImage").Source is not null && Get<System.Windows.Controls.Image>(scanPanel, "AfterImage").Source is not null,
             "selecting the TIFF shows a before and an after picture");
         Console.WriteLine("    preview: " + Get<TextBlock>(scanPanel, "PreviewText").Text);
+        var cropBefore = Get<TextBlock>(scanPanel, "CropText").Text;
+        Console.WriteLine("    crop: " + cropBefore);
+        Check(cropBefore.StartsWith("Crop 1 of ") && Get<Border>(scanPanel, "AfterBorder").IsEnabled, "the first crop (the best) is shown and can be swiped");
+        typeof(KcsPdfSigner.App.Tools.ScanCleanerPanel).GetMethod("StepCrop", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(scanPanel, [1]);
+        Wait(preview = (Task)typeof(KcsPdfSigner.App.Tools.ScanCleanerPanel).GetMethod("ShowPreviewAsync", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(scanPanel, null)!);
+        Check(Get<TextBlock>(scanPanel, "CropText").Text.StartsWith("Crop 2 of "), "swiping to the right shows the second crop: " + Get<TextBlock>(scanPanel, "CropText").Text);
+        typeof(KcsPdfSigner.App.Tools.ScanCleanerPanel).GetMethod("StepCrop", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(scanPanel, [-1]);
+        Wait((Task)typeof(KcsPdfSigner.App.Tools.ScanCleanerPanel).GetMethod("ShowPreviewAsync", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(scanPanel, null)!);
         Get<RadioButton>(scanPanel, "BwRadio").IsChecked = true;
         var scanOut = Path.Combine(scanDir, "ui-output.pdf");
         if (File.Exists(scanOut)) File.Delete(scanOut);
