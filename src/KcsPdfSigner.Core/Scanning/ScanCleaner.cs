@@ -51,7 +51,7 @@ public sealed class ScanCleanOptions
     public IReadOnlyList<string> OcrLanguages { get; init; } = ["eng"];
 
     /// <summary>A4 margin in points around the picture.</summary>
-    public double MarginPoints { get; init; } = 14;
+    public double MarginPoints { get; init; } = 0;
 
     internal int EffectiveDpi => Mode == ScanColorMode.BlackAndWhite ? BlackAndWhiteDpi
         : Dpi > 0 ? Dpi : MakeSearchable ? 250 : 200;
@@ -133,7 +133,7 @@ public static class ScanCleaner
         {
             var smallGrey = ScanImageOps.DownscaleToFit(ScanImageOps.ToGrey(source), 640, out var factor);
             found = ScanImageOps.FindPageQuad(smallGrey)?.Scaled(factor);
-            if (found is not null) found = ScanImageOps.Shrink(found, 0.004);
+            if (found is not null) found = ScanImageOps.Shrink(found, 0.008);
         }
 
         // No page edge found: the page is taken to fill the picture, minus a thin rim where the desk or a dark edge may show.
@@ -199,6 +199,10 @@ public static class ScanCleaner
         var landscape = pictureWidth > pictureHeight * 1.05;
         var pw = landscape ? A4Height : A4Width;
         var ph = landscape ? A4Width : A4Height;
+        // A picture within 8% of A4's shape is an A4 page: it fills the sheet (the shape is corrected by that little).
+        var shape = Math.Min(pictureWidth, pictureHeight) / Math.Max(pictureWidth, pictureHeight);
+        const double A4Shape = A4Width / A4Height;
+        if (Math.Abs(shape / A4Shape - 1) < 0.08) return (pw, ph, pw - 2 * margin, ph - 2 * margin);
         var scale = Math.Min((pw - 2 * margin) / pictureWidth, (ph - 2 * margin) / pictureHeight);
         return (pw, ph, pictureWidth * scale, pictureHeight * scale);
     }

@@ -333,12 +333,157 @@ public static class ScanImageOps
     // ---- Finding the page ----------------------------------------------------------
 
     /// <summary>
+    /// Finds the page: first by a brightness cut (desk clearly darker than paper), and when that finds no
+    /// clean page, by looking for the page's four edges as lines (works when desk and paper are close in
+    /// brightness, or when the page nearly fills the picture). Null when neither finds a page.
+    /// </summary>
+    public static PageQuad? FindPageQuad(Raster grey) => FindPageByCut(grey) ?? FindPageByLines(grey);
+
+    /// <summary>
+    /// Looks for each side of the page as the outermost clear dark-to-bright step seen from the picture's
+    /// border, fits a straight line through those steps (ignoring stray points), and joins the four lines.
+    /// A side with no clear line is taken to lie beyond the picture. Needs at least two real sides.
+    /// </summary>
+    public static PageQuad? FindPageByLines(Raster grey)
+    {
+        int w = grey.Width, h = grey.Height;
+        if (w < 64 || h < 64) return null;
+        var p = BoxBlur(grey.Planes[0], w, h, 3);
+
+        // Sides: 0 left, 1 right (x = a*y + b), 2 top, 3 bottom (y = a*x + b).
+        var lines = new (double A, double B, bool Real)[4];
+        var real = 0;
+        for (var side = 0; side < 4; side++)
+        {
+            var vertical = side < 2;
+            var along = vertical ? h : w;
+            var depth = vertical ? w : h;
+            var points = new List<PointD>();
+            var step = Math.Max(1, along / 90);
+            for (var t = (int)(along * 0.06); t < (int)(along * 0.94); t += step)
+            {
+                var k = FirstStep(p, w, h, side, t, (int)(depth * 0.35));
+                if (k < 0) continue;
+                points.Add(side switch
+                {
+                    0 => new PointD(t, k),
+                    1 => new PointD(t, w - 1 - k),
+                    2 => new PointD(t, k),
+                    _ => new PointD(t, h - 1 - k),
+                });
+            }
+
+            var fit = points.Count >= 14 ? FitLine(points) : null;
+            if (fit is { } f && Math.Abs(f.A) < 0.35)
+            {
+                lines[side] = (f.A, f.B, true);
+                real++;
+            }
+            else
+            {
+                // No edge seen from this side: the page runs to (or past) the picture's border.
+                lines[side] = side switch { 0 => (0, 0, false), 1 => (0, w - 1, false), 2 => (0, 0, false), _ => (0, h - 1, false) };
+            }
+        }
+
+        if (real < 2) return null;
+
+        // Vertical line: x = a*y + b.  Horizontal line: y = c*x + d.
+        PointD Cross((double A, double B, bool Real) v, (double A, double B, bool Real) hz)
+        {
+            var x = (v.A * hz.B + v.B) / (1 - v.A * hz.A);
+            return new PointD(x, hz.A * x + hz.B);
+        }
+
+        var quad = new PageQuad(Cross(lines[0], lines[2]), Cross(lines[1], lines[2]), Cross(lines[1], lines[3]), Cross(lines[0], lines[3]));
+        if (!IsConvex(quad)) return null;
+        if (PolygonArea(quad.Corners) < 0.4 * w * h) return null;
+        if (Distance(quad.TopLeft, quad.TopRight) < 0.4 * w || Distance(quad.TopLeft, quad.BottomLeft) < 0.4 * h) return null;
+        foreach (var c in quad.Corners)
+            if (c.X < -0.1 * w || c.X > 1.1 * w || c.Y < -0.1 * h || c.Y > 1.1 * h) return null;
+        return quad;
+    }
+
+    /// <summary>
+    /// Along one scan line from the picture's border inwards: the position of the first clear dark-to-bright
+    /// step (refined to the steepest point of that step), or -1.
+    /// </summary>
+    private static int FirstStep(byte[] p, int w, int h, int side, int line, int maxDepth)
+    {
+        int Sample(int k) => side switch
+        {
+            0 => p[line * w + k],
+            1 => p[line * w + (w - 1 - k)],
+            2 => p[k * w + line],
+            _ => p[(h - 1 - k) * w + line],
+        };
+
+        const int Span = 5;
+        const int Threshold = 9;
+        for (var k = Span; k < maxDepth - Span; k++)
+        {
+            var g = Sample(k + Span) - Sample(k - Span);
+            // A bright-to-dark step first means paper (or text on paper) reaches the border: no desk edge here.
+            if (g <= -Threshold) return -1;
+            if (g < Threshold) continue;
+            var bestK = k;
+            var bestG = g;
+            for (var j = k + 1; j < Math.Min(maxDepth - Span, k + 10); j++)
+            {
+                var gj = Sample(j + Span) - Sample(j - Span);
+                if (gj > bestG)
+                {
+                    bestG = gj;
+                    bestK = j;
+                }
+            }
+
+            return bestK;
+        }
+
+        return -1;
+    }
+
+    /// <summary>Line v = a*u + b through points (u, v), ignoring stray points; null when too few points agree.</summary>
+    private static (double A, double B)? FitLine(List<PointD> points)
+    {
+        var random = new Random(5);
+        var best = new List<PointD>();
+        for (var iteration = 0; iteration < 80; iteration++)
+        {
+            var p1 = points[random.Next(points.Count)];
+            var p2 = points[random.Next(points.Count)];
+            if (Math.Abs(p2.X - p1.X) < 8) continue;
+            var a = (p2.Y - p1.Y) / (p2.X - p1.X);
+            var b = p1.Y - a * p1.X;
+            var inliers = points.Where(q => Math.Abs(q.Y - (a * q.X + b)) <= 2.5).ToList();
+            if (inliers.Count > best.Count) best = inliers;
+        }
+
+        if (best.Count < 0.5 * points.Count || best.Count < 10) return null;
+        double sx = 0, sy = 0, sxx = 0, sxy = 0;
+        foreach (var q in best)
+        {
+            sx += q.X;
+            sy += q.Y;
+            sxx += q.X * q.X;
+            sxy += q.X * q.Y;
+        }
+
+        var n = best.Count;
+        var den = n * sxx - sx * sx;
+        if (Math.Abs(den) < 1e-9) return null;
+        var slope = (n * sxy - sx * sy) / den;
+        return (slope, (sy - slope * sx) / n);
+    }
+
+    /// <summary>
     /// Finds the four corners of a bright page on a darker background: the largest bright area, then its
     /// extreme points. Returns null when no page-shaped area is found (a flat scan that fills the picture,
     /// a white page on a white table, no page at all). <paramref name="grey"/> should be a reduced picture
     /// (about 600 pixels); the corners are in its coordinates.
     /// </summary>
-    public static PageQuad? FindPageQuad(Raster grey)
+    private static PageQuad? FindPageByCut(Raster grey)
     {
         int w = grey.Width, h = grey.Height;
         if (w < 16 || h < 16) return null;
