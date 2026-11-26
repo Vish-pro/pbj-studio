@@ -823,7 +823,16 @@ int RunAll()
         }
 
         Walk(prefs);
-        Check(boxes.Count == 11, $"dialog shows 11 checkboxes (found {boxes.Count})");
+        Check(boxes.Count == 12, $"dialog shows 12 checkboxes (found {boxes.Count})");
+        var ask = new DefaultAppDialog();
+        ask.Show();
+        PumpNow(200);
+        Check(ask.Title == "Default PDF app" && KcsPdfSigner.App.Services.DefaultPdfApp.PackagedAppId() is null
+              && KcsPdfSigner.App.Services.DefaultPdfApp.SettingsAddress().StartsWith("ms-settings:defaultapps?registeredApp")
+              && AppSettings.Current.AskDefaultPdfApp,
+            "the default-PDF-app question exists, is on by default and points at the Windows page");
+        _ = KcsPdfSigner.App.Services.DefaultPdfApp.IsDefault();
+        ask.Close();
         boxes.First(b => b.Name == "WheelZoom").IsChecked = true;
         boxes.First(b => b.Name == "SingleKey").IsChecked = true;
         boxes.First(b => b.Name == "HideWarnings").IsChecked = true;

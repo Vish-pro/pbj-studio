@@ -94,6 +94,10 @@ public partial class App : Application
                 OpenAndFocus(pending);
                 pending.Clear();
             }
+
+            // "Make this your default PDF app?" once the window and any opened file are on screen.
+            if (Environment.GetEnvironmentVariable("PBJ_ALLOW_MULTIPLE") != "1")
+                Dispatcher.BeginInvoke(() => DefaultAppDialog.AskIfNeeded(window), DispatcherPriority.ApplicationIdle);
         }
 
         // Brand animation first, then the main window.

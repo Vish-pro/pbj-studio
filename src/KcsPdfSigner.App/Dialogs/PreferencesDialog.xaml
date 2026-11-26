@@ -23,6 +23,13 @@
                 <CheckBox x:Name="DetectFields" Margin="0,8,0,0"
                           Content="Highlight form fields automatically when a document opens" />
 
+                <TextBlock Text="Default PDF app" FontWeight="SemiBold" FontSize="15" Margin="0,22,0,0" />
+                <CheckBox x:Name="AskDefaultBox" Margin="0,10,0,0"
+                          Content="Ask at start-up if PB&amp;J Studio is not the default PDF app" />
+                <TextBlock x:Name="DefaultStateText" Style="{StaticResource Hint}" Margin="0,6,0,0" />
+                <Button x:Name="MakeDefaultButton" Content="Make default..." HorizontalAlignment="Left" Margin="0,10,0,0"
+                        Padding="14,4" Click="OnMakeDefault" ToolTip="Opens the Windows page where you press Set default" />
+
                 <TextBlock Text="Tools" FontWeight="SemiBold" FontSize="15" Margin="0,22,0,0" />
                 <CheckBox x:Name="SingleKey" Margin="0,10,0,0"
                           Content="Single-key tool shortcuts: V = Select, H = Hand, G = Snapshot" />

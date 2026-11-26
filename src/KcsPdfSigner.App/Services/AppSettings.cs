@@ -60,6 +60,9 @@ public sealed class AppSettings
     public TouchMode Touch { get; set; } = TouchMode.Auto;
     public ScreenScaling Scaling { get; set; } = ScreenScaling.Auto;
 
+    /// <summary>Ask at start-up to become the default PDF app (until "Don't ask me again").</summary>
+    public bool AskDefaultPdfApp { get; set; } = true;
+
     // Warnings
     public bool HideEditWarnings { get; set; }
 

@@ -29,6 +29,23 @@ public partial class PreferencesDialog : Window
         HideWarnings.IsChecked = _settings.HideEditWarnings;
         ShowSuggestionsBox.IsChecked = _settings.ShowSuggestions;
         LargeFileBox.Text = _settings.LargeFileMegabytes.ToString("0.##", CultureInfo.InvariantCulture);
+        AskDefaultBox.IsChecked = _settings.AskDefaultPdfApp;
+        var isDefault = DefaultPdfApp.IsDefault();
+        DefaultStateText.Text = isDefault ? "PB&J Studio opens your PDF files." : "Another app opens your PDF files now.";
+        MakeDefaultButton.IsEnabled = !isDefault;
+    }
+
+    private void OnMakeDefault(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            DefaultPdfApp.OpenWindowsChoice();
+        }
+        catch (Exception ex)
+        {
+            App.LogError("Opening the default apps page", ex);
+            MessageDialog.Show(this, "Open Windows Settings > Apps > Default apps and choose PB&J Studio for .pdf.", "Preferences");
+        }
     }
 
     private void OnResetSuggestions(object sender, RoutedEventArgs e)
@@ -73,6 +90,7 @@ public partial class PreferencesDialog : Window
             return;
         }
 
+        _settings.AskDefaultPdfApp = AskDefaultBox.IsChecked == true;
         _settings.ShowSuggestions = ShowSuggestionsBox.IsChecked == true;
         _settings.LargeFileMegabytes = megabytes;
         _settings.ReopenLastSession = ReopenLastSession.IsChecked == true;

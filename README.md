@@ -36,7 +36,7 @@ Everything runs offline on your PC, and the program is free and open source (MIT
 
 ## Install
 
-1. Download `PBJStudio-Setup-1.3.2.exe` from the **Releases** page of this repository.
+1. Download `PBJStudio-Setup-1.3.3.exe` from the **Releases** page of this repository.
 2. Your browser may warn that the file "isn't commonly downloaded". This is normal for new free software
    without a paid code-signing certificate. In **Edge**: open Downloads (Ctrl+J), click the **...** next to the
    file, choose **Keep**, then **Show more** > **Keep anyway**. In **Chrome**: click the warning, then **Keep**.
@@ -150,6 +150,12 @@ text layer (slower; see the OCR section for languages and limits).
 Photograph the page on a darker table, in even light, with the whole page in view. If no page edge can be found (white page
 on a white table), the whole picture is straightened and cleaned instead; the result line tells you. Pictures that cannot be
 read are skipped and named. Sizes: a 20-photo PDF is about 6 MB in colour and under 1 MB in black and white.
+
+## Open PDFs with PB&J Studio by default
+
+At start-up the app asks **Make PB&J Studio your default PDF app?** Click **Yes**, then press **Set default** on the Windows page
+that opens (Windows does not let any app do that step itself). Tick **Don't ask me again** to stop the question, or use
+**Preferences (Ctrl+K) > Default PDF app** any time.
 
 ## Sign a PDF at many places
 
@@ -378,7 +384,7 @@ Build the installer with [Inno Setup 6](https://jrsoftware.org/isinfo.php):
 ISCC.exe packaging/setup.iss
 ```
 
-The installer is written to `dist/PBJStudio-Setup-1.3.2.exe`. Upload it to a GitHub Release; do not
+The installer is written to `dist/PBJStudio-Setup-1.3.3.exe`. Upload it to a GitHub Release; do not
 commit it. To change the version, edit `Version` in `KcsPdfSigner.App.csproj` and `AppVersion` in `setup.iss`.
 
 ## Credits
