@@ -22,3 +22,6 @@ packaging/guide/node_modules/
 
 # OCR language files fetched by packaging/fetch-ocr-languages.ps1 (official binaries, never committed)
 packaging/ocr-languages/
+
+# Microsoft build tools for the MSIX package (downloaded, never committed)
+packaging/sdk-buildtools/

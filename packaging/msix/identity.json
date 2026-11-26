@@ -1,0 +1,7 @@
+{
+  "_help": "Placeholders. Replace with the values from Partner Center > your app > Product management > Product identity, then run build-msix.ps1 again.",
+  "IdentityName": "PLACEHOLDER.PBJStudio",
+  "Publisher": "CN=00000000-0000-0000-0000-000000000000",
+  "PublisherDisplayName": "PLACEHOLDER PUBLISHER",
+  "DisplayName": "PB&J Studio"
+}
