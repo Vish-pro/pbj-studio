@@ -1,7 +1,7 @@
 {
-  "_help": "Placeholders. Replace with the values from Partner Center > your app > Product management > Product identity, then run build-msix.ps1 again.",
-  "IdentityName": "PLACEHOLDER.PBJStudio",
-  "Publisher": "CN=00000000-0000-0000-0000-000000000000",
-  "PublisherDisplayName": "TrueVith",
-  "DisplayName": "PB&J Studio"
+  "_help": "Values from Partner Center > PB&J PDF Studio > Product identity. After a change, run build-msix.ps1 again.",
+  "IdentityName": "vistaar.space.PBJPDFStudio",
+  "Publisher": "CN=7A393901-535D-4A21-9215-A1F985F0E6DC",
+  "PublisherDisplayName": "vistaar.space",
+  "DisplayName": "PB&J PDF Studio"
 }
