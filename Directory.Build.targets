@@ -20,6 +20,8 @@
       <_ObfHead Include="  &lt;Var name=&quot;Asm&quot; value=&quot;$(AssemblyName)&quot; /&gt;" />
       <_ObfRuntime Include="  &lt;AssemblySearchPath path=&quot;D:\dotnet\shared\Microsoft.NETCore.App\8.0.28&quot; /&gt;" />
       <_ObfRuntime Include="  &lt;AssemblySearchPath path=&quot;D:\dotnet\shared\Microsoft.WindowsDesktop.App\8.0.28&quot; /&gt;" />
+      <!-- SkiaSharp is missing from the compile reference list; take it from wherever NuGet keeps its packages. -->
+      <_ObfRuntime Include="  &lt;AssemblySearchPath path=&quot;$(NuGetPackageRoot)\skiasharp\4.150.1\lib\net6.0\&quot; /&gt;" />
       <_ObfTail Include="&lt;/Obfuscator&gt;" />
     </ItemGroup>
     <ReadLinesFromFile File="$(MSBuildProjectDirectory)\obfuscar.body.xml">
